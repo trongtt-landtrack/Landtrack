@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A construction project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "developer": { "type": "string" },
+        "location": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "sheetUrl": { "type": "string" },
+        "isHot": { "type": "boolean" },
+        "isFavorite": { "type": "boolean" }
+      },
+      "required": ["id", "name", "developer", "location", "type", "status", "imageUrl", "isHot", "isFavorite"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "role", "email"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": { "$ref": "Project" },
+      "description": "Collection of projects."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Collection of users."
+    }
+  }
+}

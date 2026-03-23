@@ -1,0 +1,5 @@
+{
+  "name": "Project Manager Demo",
+  "description": "App to read and manage projects from Google Sheets with dynamic filtering and unit data linking.",
+  "requestFramePermissions": []
+}
