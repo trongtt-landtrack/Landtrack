@@ -28,9 +28,21 @@
         "role": { "type": "string" },
         "phone": { "type": "string" },
         "email": { "type": "string" },
-        "avatarUrl": { "type": "string" }
+        "avatarUrl": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "name", "role", "email"]
+      "required": ["id", "name", "role", "email", "status", "createdAt"]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "A user's favorite project.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "projectId": { "type": "string" }
+      },
+      "required": ["uid", "projectId"]
     }
   },
   "firestore": {
@@ -41,6 +53,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "User" },
       "description": "Collection of users."
+    },
+    "/favorites/{favoriteId}": {
+      "schema": { "$ref": "Favorite" },
+      "description": "Collection of favorite projects."
     }
   }
 }

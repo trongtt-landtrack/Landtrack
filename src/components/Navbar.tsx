@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, RefreshCw, User, Shield, LogOut, Menu, X } from 'lucide-react';
+import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -31,7 +31,7 @@ export default function Navbar() {
               <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">
                 S
               </div>
-              <span className="font-bold text-xl tracking-tight text-blue-900">SALEPRO<span className="text-gray-500 text-sm font-normal">.COM</span></span>
+              <span className="font-bold text-xl tracking-tight text-blue-900">LANDTRACK</span>
             </Link>
             <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
               <Link to="/projects" className="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium uppercase">
@@ -44,16 +44,13 @@ export default function Navbar() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
             {user ? (
               <>
-                <button className="p-2 text-gray-400 hover:text-gray-500">
+                <button 
+                  className="p-2 text-gray-400 hover:text-gray-500"
+                  onClick={() => window.location.reload()}
+                  title="Tải lại trang"
+                >
                   <RefreshCw className="h-5 w-5" />
                 </button>
-                <button className="p-2 text-gray-400 hover:text-gray-500 relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white" />
-                </button>
-                <Link to="/admin" className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Admin Panel">
-                  <Shield className="h-5 w-5" />
-                </Link>
                 <Link to="/profile" className="relative">
                   <div className="h-8 w-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600">
                     <User className="h-5 w-5" />

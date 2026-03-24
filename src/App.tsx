@@ -4,8 +4,6 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/LoginPage';
-import AdminLayout from './components/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function Layout() {
@@ -25,17 +23,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         
-        {/* Admin Routes */}
-        <Route path="/admin" element={
-          <ProtectedRoute>
-            <AdminLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<AdminDashboard />} />
-          <Route path="sync" element={<AdminDashboard />} />
-          <Route path="settings" element={<div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">Tính năng đang phát triển...</div>} />
-        </Route>
-
         {/* Public Routes */}
         <Route path="/" element={<Layout />}>
           <Route index element={<ProjectsPage />} />

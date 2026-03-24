@@ -1,4 +1,4 @@
-import { Project, User } from '../types';
+import { Project, User, UserRole } from '../types';
 
 export const mockProjects: Project[] = [
   {
@@ -104,7 +104,7 @@ export const mockProjects: Project[] = [
 export const mockUser: User = {
   id: 'u1',
   name: 'Trần Trọng',
-  role: 'Cộng Tác Viên của Phùng Sơn Vương',
+  role: UserRole.PROJECT_MEMBER,
   phone: '0938808522',
   email: 'tranthetrong.91@gmail.com',
   avatarUrl: 'https://picsum.photos/seed/avatar/100/100',

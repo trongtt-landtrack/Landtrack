@@ -2,12 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import Sidebar from '../components/Sidebar';
-import { fetchSheetData } from '../services/googleSheets';
+import { getProjectConfigs } from '../services/configService';
 import { Project } from '../types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-
-const MAIN_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M/edit?gid=0#gid=0';
+import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -15,6 +14,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(true);
   const [filters, setFilters] = useState({
     developer: '',
     location: '',
@@ -26,34 +26,37 @@ export default function ProjectsPage() {
     async function loadData() {
       try {
         setLoading(true);
-        // Load projects
-        const data = await fetchSheetData<any>(MAIN_SHEET_URL);
+        // Load projects from config sheet
+        const configs = await getProjectConfigs();
         
         // Load favorites
         let favoriteProjectIds = new Set<string>();
         if (auth.currentUser) {
-          const q = query(collection(db, 'favorites'), where('uid', '==', auth.currentUser.uid));
-          const querySnapshot = await getDocs(q);
-          querySnapshot.forEach((doc) => {
-            favoriteProjectIds.add(doc.data().projectId);
-          });
+          try {
+            const q = query(collection(db, 'favorites'), where('uid', '==', auth.currentUser.uid));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((doc) => {
+              favoriteProjectIds.add(doc.data().projectId);
+            });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.LIST, 'favorites');
+          }
         }
 
-        const formattedProjects: Project[] = data.map((row: any, index: number) => {
-          const id = row.id || String(index);
+        const formattedProjects: Project[] = configs.map((config) => {
           return {
-            id,
-            name: row.name || 'Unnamed Project',
-            developer: row.developer || '',
-            location: row.location || '',
-            type: row.type || '',
-            status: row.status || '',
-            imageUrl: row.imageUrl || `https://picsum.photos/seed/${id}/600/400`,
-            sheetUrl: row.sheetUrl || '',
-            isHot: row.isHot === 'TRUE' || row.isHot === 'true',
-            isFavorite: favoriteProjectIds.has(id),
+            id: config.projectId,
+            name: config.name || 'Unnamed Project',
+            developer: config.developer || '',
+            location: config.location || '',
+            type: config.type || '',
+            status: config.status || '',
+            imageUrl: config.imageUrl || `https://picsum.photos/seed/${config.projectId}/600/400`,
+            sheetUrl: config.sheetUrl || '',
+            isHot: config.isHot,
+            isFavorite: favoriteProjectIds.has(config.projectId),
           };
-        }).filter(p => p.name !== 'Unnamed Project');
+        });
         
         setProjects(formattedProjects);
       } catch (err) {
@@ -95,57 +98,67 @@ export default function ProjectsPage() {
       </h1>
 
       {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="relative flex-grow">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+      <div className="flex flex-col gap-4 mb-8">
+        <div className="flex gap-4">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="Tìm kiếm dự án..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="Tìm kiếm dự án..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+          </button>
         </div>
         
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-          <select 
-            className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            value={filters.developer}
-            onChange={(e) => setFilters(prev => ({ ...prev, developer: e.target.value }))}
-          >
-            <option value="">Chọn chủ đầu tư</option>
-            {developers.map(dev => <option key={dev} value={dev}>{dev}</option>)}
-          </select>
+        {showFilters && (
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            <select 
+              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={filters.developer}
+              onChange={(e) => setFilters(prev => ({ ...prev, developer: e.target.value }))}
+            >
+              <option value="">Chọn chủ đầu tư</option>
+              {developers.map(dev => <option key={dev} value={dev}>{dev}</option>)}
+            </select>
 
-          <select 
-            className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            value={filters.location}
-            onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-          >
-            <option value="">Chọn khu vực</option>
-            {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-          </select>
+            <select 
+              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={filters.location}
+              onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+            >
+              <option value="">Chọn khu vực</option>
+              {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+            </select>
 
-          <select 
-            className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            value={filters.type}
-            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-          >
-            <option value="">Chọn loại hình</option>
-            {types.map(type => <option key={type} value={type}>{type}</option>)}
-          </select>
+            <select 
+              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={filters.type}
+              onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+            >
+              <option value="">Chọn loại hình</option>
+              {types.map(type => <option key={type} value={type}>{type}</option>)}
+            </select>
 
-          <select 
-            className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            value={filters.status}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          >
-            <option value="">Chọn trạng thái</option>
-            {statuses.map(status => <option key={status} value={status}>{status}</option>)}
-          </select>
-        </div>
+            <select 
+              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={filters.status}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            >
+              <option value="">Chọn trạng thái</option>
+              {statuses.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
