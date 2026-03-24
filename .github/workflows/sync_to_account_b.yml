@@ -1,6 +1,5 @@
 name: Dong bo code sang Landtrack B
 
-# 1. Tu dong chay moi khi ban push code len nhanh main cua Tai khoan A
 on:
   push:
     branches:
@@ -10,24 +9,22 @@ jobs:
   sync-to-landtrack:
     runs-on: ubuntu-latest
     steps:
-      # Buoc 2: Lay code tu Tai khoan A
-      - name: Checkout code
+      - name: Lay code tu Tai khoan A
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Lay toan bo lich su commit
+          fetch-depth: 0
+          persist-credentials: false # Xóa quyền mặc định để dùng Token của bạn
 
-      # Buoc 3: Day code sang Tai khoan B (trongtt-landtrack)
-      - name: Push to Account B
+      - name: Day code sang Tai khoan B (trongtt-landtrack)
+        env:
+          # Lay token moi tu Secret SYNC_TOKEN
+          MY_TOKEN: ${{ secrets.SYNC_TOKEN }}
         run: |
-          # Thiet lap thong tin Git de khong bi hoi
           git config --global user.email "trongtt.landtrack@gmail.com"
           git config --global user.name "Sync Bot"
           
-          # Duong dan den kho Landtrack cua Tai khoan B (Su dung Secret SYNC_TOKEN)
-          DEST_REPO="https://${{ secrets.SYNC_TOKEN }}@github.com/trongtt-landtrack/Landtrack.git"
+          # URL chuẩn để xác thực bằng Token
+          DEST_REPO="https://x-access-token:${MY_TOKEN}@github.com/trongtt-landtrack/Landtrack.git"
           
-          # Them dich den va thuc hien day code tu main sang main
           git remote add destination $DEST_REPO
-          
-          # Lenh nay se ghi de code tu Tai khoan A sang Tai khoan B
           git push destination main:main --force
