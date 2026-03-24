@@ -126,40 +126,40 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 sm:mt-6">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-start">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900 uppercase">{project.name}</h1>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="space-y-2 sm:space-y-3 w-full sm:w-auto">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 uppercase truncate">{project.name}</h1>
                 {project.sheetUrl && (
-                  <a href={project.sheetUrl} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-600 transition-colors">
+                  <a href={project.sheetUrl} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-600 transition-colors flex-shrink-0">
                     <ExternalLink className="w-5 h-5" />
                   </a>
                 )}
               </div>
               
               {project.location && (
-                <div className="flex items-center gap-1.5 text-gray-500">
-                  <MapPin className="w-4 h-4" />
-                  <span>{project.location}</span>
+                <div className="flex items-center gap-1.5 text-gray-500 text-sm sm:text-base">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{project.location}</span>
                 </div>
               )}
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors">
+            <button className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors">
               Chia sẻ <Share2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-t-lg shadow-sm border-x border-t border-gray-200 px-6 pt-2 overflow-x-auto scrollbar-hide">
+        <div className="bg-white rounded-t-2xl shadow-sm border-x border-t border-gray-200 px-4 sm:px-6 pt-2 overflow-x-auto scrollbar-hide">
           <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-b-lg shadow-sm border-x border-b border-gray-200 p-6 min-h-[500px]">
+        <div className="bg-white rounded-b-2xl shadow-sm border-x border-b border-gray-200 p-4 sm:p-6 min-h-[500px]">
           {activeTab === 'overview' && (
             <DashboardTab 
               sheetUrl={project.sheetUrl || ''} 

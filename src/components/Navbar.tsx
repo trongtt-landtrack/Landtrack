@@ -78,17 +78,35 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="sm:hidden bg-white border-b border-gray-200 p-4 space-y-2">
-          <Link to="/projects" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 rounded-md">Dự án</Link>
-          {user ? (
-            <>
-              <Link to="/profile" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 rounded-md">Hồ sơ</Link>
-              <Link to="/admin" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 rounded-md">Admin</Link>
-              <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:bg-red-50 rounded-md">Đăng xuất</button>
-            </>
-          ) : (
-            <Link to="/login" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-base font-medium text-blue-600 hover:bg-blue-50 rounded-md">Đăng nhập</Link>
-          )}
+        <div className="sm:hidden fixed inset-0 z-[100] bg-white pt-16 animate-in slide-in-from-right duration-300">
+          <div className="p-4 space-y-4">
+            <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-gray-900 border-b border-gray-100">
+              <LayoutDashboard className="h-5 w-5 text-blue-600" />
+              Dự án
+            </Link>
+            {user ? (
+              <>
+                <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-gray-900 border-b border-gray-100">
+                  <User className="h-5 w-5 text-blue-600" />
+                  Hồ sơ cá nhân
+                </Link>
+                <button onClick={handleLogout} className="flex items-center gap-3 w-full text-left px-4 py-4 text-lg font-medium text-red-600">
+                  <LogOut className="h-5 w-5" />
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <Link to="/login" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-blue-600">
+                Đăng nhập
+              </Link>
+            )}
+          </div>
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-500"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
       )}
     </nav>

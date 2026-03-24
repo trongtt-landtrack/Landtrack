@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Filter } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import Sidebar from '../components/Sidebar';
 import { getProjectConfigs } from '../services/configService';
@@ -99,14 +99,14 @@ export default function ProjectsPage() {
 
       {/* Search and Filters */}
       <div className="flex flex-col gap-4 mb-8">
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-grow">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full pl-10 pr-3 py-3 sm:py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all"
               placeholder="Tìm kiếm dự án..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -114,47 +114,48 @@ export default function ProjectsPage() {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-3 sm:py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center justify-center gap-2"
           >
+            <Filter className="w-4 h-4" />
             {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
           </button>
         </div>
         
         {showFilters && (
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <select 
-              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
               value={filters.developer}
               onChange={(e) => setFilters(prev => ({ ...prev, developer: e.target.value }))}
             >
-              <option value="">Chọn chủ đầu tư</option>
+              <option value="">Chủ đầu tư</option>
               {developers.map(dev => <option key={dev} value={dev}>{dev}</option>)}
             </select>
 
             <select 
-              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
               value={filters.location}
               onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
             >
-              <option value="">Chọn khu vực</option>
+              <option value="">Khu vực</option>
               {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
             </select>
 
             <select 
-              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
               value={filters.type}
               onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
             >
-              <option value="">Chọn loại hình</option>
+              <option value="">Loại hình</option>
               {types.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
 
             <select 
-              className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             >
-              <option value="">Chọn trạng thái</option>
+              <option value="">Trạng thái</option>
               {statuses.map(status => <option key={status} value={status}>{status}</option>)}
             </select>
           </div>

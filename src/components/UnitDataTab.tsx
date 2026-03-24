@@ -309,64 +309,72 @@ export default function UnitDataTab({ sheetUrl, headerRow, dataStartRow, dataEnd
       {/* Data Table */}
       <div className="space-y-6">
         {Object.entries(groupedData as Record<string, any[]>).map(([groupName, items]) => (
-          <div key={groupName} className="overflow-auto rounded-2xl border border-gray-200 shadow-sm bg-white">
-            {groupBy && <h3 className="p-5 bg-gray-50 font-bold text-gray-900 border-b border-gray-200">{groupName} <span className="text-gray-500 font-normal">({items.length} căn)</span></h3>}
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-gray-50 text-gray-500 font-medium uppercase tracking-wider sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-4 border-b border-gray-200 text-center whitespace-nowrap">Hành động</th>
-                  {columns.map(col => <th key={col} className="px-6 py-4 border-b border-gray-200 whitespace-nowrap">{col}</th>)}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {items.map((row, i) => (
-                  <tr 
-                    key={i} 
-                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedUnit(row)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {(() => {
-                        const unitCodeCol = Object.keys(row).find(key => key.toLowerCase().includes('mã căn'));
-                        const unitCode = unitCodeCol ? row[unitCodeCol] : `row-${i}`;
-                        const actionId = `${unitCode}-interest`;
-                        const isSuccess = likedUnits.has(unitCode);
-                        const isLoading = actionLoading === actionId;
-
-                        return (
-                          <button
-                            onClick={(e) => handleUnitAction(row, 'interest', e)}
-                            disabled={isLoading || isSuccess}
-                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                              isSuccess 
-                                ? 'bg-red-50 text-red-600' 
-                                : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'
-                            }`}
-                            title={isSuccess ? 'Đã lưu' : 'Quan tâm'}
-                          >
-                            {isLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : isSuccess ? (
-                              <Heart className="w-4 h-4 fill-current" />
-                            ) : (
-                              <Heart className="w-4 h-4" />
-                            )}
-                          </button>
-                        );
-                      })()}
-                    </td>
-                    {columns.map(col => {
-                      const isPrice = col.toLowerCase().includes('giá');
-                      return (
-                        <td key={col} className={`px-6 py-4 whitespace-nowrap ${isPrice ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
-                          {row[col]}
-                        </td>
-                      );
-                    })}
+          <div key={groupName} className="relative overflow-hidden rounded-2xl border border-gray-200 shadow-sm bg-white">
+            {groupBy && <h3 className="p-4 sm:p-5 bg-gray-50 font-bold text-gray-900 border-b border-gray-200">{groupName} <span className="text-gray-500 font-normal">({items.length} căn)</span></h3>}
+            
+            <div className="overflow-x-auto scrollbar-hide">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-gray-50 text-gray-500 font-medium uppercase tracking-wider sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 sm:px-6 py-4 border-b border-gray-200 text-center whitespace-nowrap">Hành động</th>
+                    {columns.map(col => <th key={col} className="px-4 sm:px-6 py-4 border-b border-gray-200 whitespace-nowrap">{col}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {items.map((row, i) => (
+                    <tr 
+                      key={i} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedUnit(row)}
+                    >
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                        {(() => {
+                          const unitCodeCol = Object.keys(row).find(key => key.toLowerCase().includes('mã căn'));
+                          const unitCode = unitCodeCol ? row[unitCodeCol] : `row-${i}`;
+                          const actionId = `${unitCode}-interest`;
+                          const isSuccess = likedUnits.has(unitCode);
+                          const isLoading = actionLoading === actionId;
+
+                          return (
+                            <button
+                              onClick={(e) => handleUnitAction(row, 'interest', e)}
+                              disabled={isLoading || isSuccess}
+                              className={`inline-flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full transition-colors ${
+                                isSuccess 
+                                  ? 'bg-red-50 text-red-600' 
+                                  : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'
+                              }`}
+                              title={isSuccess ? 'Đã lưu' : 'Quan tâm'}
+                            >
+                              {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : isSuccess ? (
+                                <Heart className="w-4 h-4 fill-current" />
+                              ) : (
+                                <Heart className="w-4 h-4" />
+                              )}
+                            </button>
+                          );
+                        })()}
+                      </td>
+                      {columns.map(col => {
+                        const isPrice = col.toLowerCase().includes('giá');
+                        return (
+                          <td key={col} className={`px-4 sm:px-6 py-4 whitespace-nowrap ${isPrice ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                            {row[col]}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Mobile Scroll Hint */}
+            <div className="sm:hidden flex justify-center py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 uppercase tracking-widest">
+              Vuốt sang ngang để xem thêm →
+            </div>
           </div>
         ))}
       </div>
