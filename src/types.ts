@@ -69,3 +69,9 @@ export interface User {
   departmentId?: string;
   teamId?: string;
 }
+
+export interface UnitSearchResult {
+  projectId: string;
+  projectName: string;
+  unitData: any;
+}
