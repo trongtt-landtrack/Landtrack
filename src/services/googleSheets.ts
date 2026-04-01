@@ -1,5 +1,21 @@
 import Papa from 'papaparse';
 
+const cache = new Map<string, { data: any, timestamp: number }>();
+const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const PERSISTENT_CACHE_PREFIX = 'sheet_cache_v1_';
+
+export function clearCache() {
+  cache.clear();
+  // Clear all localStorage entries with our prefix
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(PERSISTENT_CACHE_PREFIX)) {
+      localStorage.removeItem(key);
+      i--; // Adjust index after removal
+    }
+  }
+}
+
 export function getCsvUrl(url: string) {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
   if (match) {
@@ -14,15 +30,34 @@ export function getCsvUrl(url: string) {
   return null;
 }
 
+export const normalize = (str: string) => 
+  str.normalize('NFD')
+     .replace(/[\u0300-\u036f]/g, '')
+     .toLowerCase()
+     .trim()
+     .replace(/\s+/g, ' ');
+
 export async function fetchSheetData<T>(url: string): Promise<T[]> {
   const csvUrl = getCsvUrl(url);
   if (!csvUrl) {
     throw new Error('Invalid Google Sheet URL');
   }
 
+  // Kiểm tra cache
+  const cached = cache.get(csvUrl);
+  if (cached && (Date.now() - cached.timestamp < MEMORY_CACHE_DURATION)) {
+    return cached.data as T[];
+  }
+
   return new Promise(async (resolve, reject) => {
+    // Thiết lập timeout 30 giây cho yêu cầu fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
-      const response = await fetch(csvUrl);
+      const response = await fetch(csvUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
       }
@@ -45,22 +80,25 @@ export async function fetchSheetData<T>(url: string): Promise<T[]> {
 
           // Detect header row index
           let actualHeaderRowIndex = 0;
-          let maxNonEmpty = 0;
+          let maxScore = -1;
           
-          const headerKeywords = ['mã căn', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng'];
+          const headerKeywords = ['mã căn', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng', 'email', 'tên', 'vai trò'];
 
-          for (let i = 0; i < Math.min(15, rows.length); i++) {
+          for (let i = 0; i < Math.min(20, rows.length); i++) {
             const row = rows[i];
             const nonEmptyCount = row.filter(cell => cell && cell.trim() !== '').length;
-            const rowText = row.join(' ').toLowerCase();
-            
-            let score = nonEmptyCount;
+            if (nonEmptyCount < 2) continue;
+
+            const rowText = normalize(row.join(' '));
+            let keywordMatches = 0;
             headerKeywords.forEach(keyword => {
-              if (rowText.includes(keyword)) score += 5;
+              if (rowText.includes(normalize(keyword))) keywordMatches++;
             });
 
-            if (score > maxNonEmpty && nonEmptyCount > 2) {
-              maxNonEmpty = score;
+            let score = (keywordMatches * 100) + nonEmptyCount;
+
+            if (score > maxScore) {
+              maxScore = score;
               actualHeaderRowIndex = i;
             }
           }
@@ -89,6 +127,9 @@ export async function fetchSheetData<T>(url: string): Promise<T[]> {
             const row = rows[i];
             if (row.every(cell => !cell || cell.trim() === '')) continue;
             
+            // Skip rows that look like notes or separators (only 1 cell filled)
+            if (row.filter(cell => cell && cell.trim() !== '').length < 2) continue;
+
             const obj: any = {};
             uniqueHeaders.forEach((header, index) => {
               if (header) {
@@ -98,6 +139,8 @@ export async function fetchSheetData<T>(url: string): Promise<T[]> {
             data.push(obj as T);
           }
 
+          // Lưu vào cache
+          cache.set(csvUrl, { data, timestamp: Date.now() });
           resolve(data);
         },
         error: (error) => {
@@ -115,58 +158,222 @@ export async function fetchConfiguredSheetData<T>(
   headerRow: number,
   dataStartRow: number,
   dataEndRow: number,
-  requiredFields?: string[]
+  requiredFields?: string[],
+  headerMatrix?: Record<string, string>,
+  persistentCacheDuration: number = 0 // Duration in ms, 0 means no persistent cache
 ): Promise<T[]> {
   const csvUrl = getCsvUrl(url);
+  const cacheKey = `${csvUrl}_${headerRow}_${dataStartRow}_${dataEndRow}`;
+  const now = Date.now();
+  
+  // 1. Check Memory Cache
+  const cached = cache.get(cacheKey);
+  if (cached && (now - cached.timestamp < MEMORY_CACHE_DURATION)) {
+    return cached.data as T[];
+  }
+
+  // 2. Check Persistent Cache (localStorage)
+  if (persistentCacheDuration > 0) {
+    const storageKey = PERSISTENT_CACHE_PREFIX + cacheKey;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const { data, timestamp } = JSON.parse(stored);
+        if (now - timestamp < persistentCacheDuration) {
+          // Update memory cache
+          cache.set(cacheKey, { data, timestamp });
+          return data as T[];
+        }
+      } catch (e) {
+        console.error('Error parsing persistent cache:', e);
+      }
+    }
+  }
+  
+  // 3. Check GAS API
+  const gasApiUrl = import.meta.env.VITE_DATA_CLEAN_GAS_URL;
+  if (gasApiUrl) {
+    console.log('Đang sử dụng GAS API để làm sạch dữ liệu từ:', url);
+    try {
+      const response = await fetch(`${gasApiUrl}?url=${encodeURIComponent(url)}`);
+      if (!response.ok) {
+        throw new Error(`Lỗi mạng khi gọi GAS API: ${response.status}`);
+      }
+      const json = await response.json();
+      if (json.success) {
+        console.log(`GAS API xử lý thành công sheet: ${json.sheetName}, ${json.totalRows} dòng.`);
+        return json.data as T[];
+      } else {
+        throw new Error(json.error || 'Lỗi không xác định từ GAS API');
+      }
+    } catch (error) {
+      console.error("Lỗi khi gọi GAS API, chuyển sang cách tải CSV cũ:", error);
+      // Fallback xuống cách cũ nếu GAS lỗi
+    }
+  }
+
+  // 2. Fallback: Cách cũ (Tải CSV trực tiếp - không lọc được dòng ẩn)
   if (!csvUrl) {
     throw new Error('Invalid Google Sheet URL');
   }
 
-  const response = await fetch(csvUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-  }
-  
-  const text = await response.text();
-  
-  if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
-    throw new Error('Google Sheet is not public. Please change sharing settings to "Anyone with the link can view".');
-  }
+  // Thiết lập timeout 30 giây cho yêu cầu fetch
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  return new Promise((resolve, reject) => {
-    Papa.parse(text, {
+  try {
+    const response = await fetch(csvUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+    }
+    
+    const text = await response.text();
+    
+    if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+      throw new Error('Google Sheet is not public. Please change sharing settings to "Anyone with the link can view".');
+    }
+
+    return new Promise((resolve, reject) => {
+      Papa.parse(text, {
       header: false,
       skipEmptyLines: false,
       complete: (results) => {
         const rows = results.data as string[][];
         
         // Detect header row index dynamically to account for gviz stripping rows
-        let actualHeaderRowIndex = 0;
-        let maxNonEmpty = 0;
+        let actualHeaderRowIndex = -1;
+        let maxScore = -1;
         
         // Use requiredFields as keywords if available, otherwise default keywords
         const headerKeywords = (requiredFields && requiredFields.length > 0) 
           ? requiredFields.map(f => f.toLowerCase()) 
-          : ['mã căn', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng'];
+          : ['mã căn', 'mã sp', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng', 'tình trạng'];
 
-        for (let i = 0; i < Math.min(15, rows.length); i++) {
+        // First, try the configured header row (with a small buffer for gviz shifts)
+        const configuredIndex = headerRow - 1;
+        const searchRange = [
+          configuredIndex, 
+          configuredIndex - 1, 
+          configuredIndex - 2, 
+          0, 1, 2, 3, 4, 5
+        ].filter(i => i >= 0 && i < rows.length);
+
+        // Remove duplicates from searchRange
+        const uniqueSearchRange = Array.from(new Set(searchRange));
+
+        for (const i of uniqueSearchRange) {
           const row = rows[i];
-          const nonEmptyCount = row.filter(cell => cell && cell.trim() !== '').length;
-          const rowText = row.join(' ').toLowerCase();
+          const nonEmptyCells = row.filter(cell => cell && cell.trim() !== '');
+          const nonEmptyCount = nonEmptyCells.length;
           
-          let score = nonEmptyCount;
+          if (nonEmptyCount < 2) continue;
+
+          // Penalty for rows with very long strings (likely titles/notes)
+          const hasVeryLongString = nonEmptyCells.some(cell => cell.length > 50);
+          
+          const rowText = normalize(row.join(' '));
+          let keywordMatches = 0;
           headerKeywords.forEach(keyword => {
-            if (rowText.includes(keyword)) score += 5;
+            if (rowText.includes(normalize(keyword))) keywordMatches++;
           });
 
-          if (score > maxNonEmpty && nonEmptyCount > 2) {
-            maxNonEmpty = score;
+          // Score calculation
+          let score = (keywordMatches * 100) + nonEmptyCount;
+          if (hasVeryLongString) score -= 500; // Heavy penalty for title-like rows
+          
+          // Boost if it's exactly the configured row
+          if (i === configuredIndex) score += 50;
+
+          if (score > maxScore) {
+            maxScore = score;
             actualHeaderRowIndex = i;
           }
         }
 
-        const headers = rows[actualHeaderRowIndex].map(h => h ? h.trim() : '');
-        
+        // Fallback if no good header found
+        if (actualHeaderRowIndex === -1) actualHeaderRowIndex = Math.max(0, headerRow - 1);
+
+        const headers = rows[actualHeaderRowIndex].map(h => {
+          const trimmed = h ? h.trim() : '';
+          return trimmed.length > 60 ? '' : trimmed;
+        });
+
+        // Header Normalization Matrix - Expanded for more variations
+        const NORMALIZATION_MAP: Record<string, string[]> = {
+          'Mã căn': ['mã căn', 'mã sp', 'unit code', 'số căn', 'mã sản phẩm', 'căn số', 'mã sp'],
+          'Phân khu': ['phân khu', 'khu', 'block', 'tòa', 'zone', 'subdivision'],
+          'Loại hình': ['loại hình', 'loại căn hộ', 'loại sp', 'type', 'product type'],
+          'Diện tích đất': ['dt đất', 'diện tích đất', 'dt đất (m2)', 'dtđ', 'land area', 'diện tích'],
+          'Diện tích XD': ['dtxd', 'dtcd', 'diện tích xây dựng', 'dtxd (m2)', 'construction area', 'tiền xây dựng', 'tổng tiền xây dựng'],
+          'Giá bán': ['giá bán', 'giá tts', 'giá gồm vat', 'giá niêm yết', 'tổng giá', 'giá bán trước vat', 'giá tts (gồm vat)'],
+          'Hướng': ['hướng', 'hướng cửa', 'hướng ban công', 'view', 'orientation'],
+          'Tầng': ['tầng', 'floor', 'số tầng'],
+          'Tình trạng': ['tình trạng', 'trạng thái', 'status', 'booking', 'giỏ hàng'],
+          'Link PTG': ['link ptg', 'ptg & chi can', 'ptg', 'link tai lieu', 'ptg & chỉ căn'],
+          'Thanh toán': ['tts', 'tttd', 'vay', 'phương thức thanh toán', 'pttt'],
+          'Tiền đất': ['tiền đất', 'tổng tiền đất', 'giá đất']
+        };
+
+        // Header Normalization Matrix - Aligned with User's proposed Standard Matrix
+        const HEADER_MATRIX: Record<string, string[]> = {
+          'TÊN ĐL': ['tên đl', 'tên đại lý', 'agent name', 'full agent name', 'đại lý phân phối', 'đl'],
+          'Mã ĐL': ['mã đl', 'mã đại lý', 'agent id', 'agent code'],
+          'Mã căn': ['mã căn', 'mã sp', 'unit code', 'số căn', 'mã sản phẩm', 'căn số', 'mã sp'],
+          'Phân khu': ['phân khu', 'khu', 'block', 'tòa', 'zone', 'subdivision'],
+          'Loại hình': ['loại hình', 'loại căn hộ', 'loại sp', 'type', 'product type'],
+          'TCBG': ['tcbg', 'tiêu chuẩn bàn giao', 'bàn giao'],
+          'Số tầng': ['số tầng', 'tầng', 'floor'],
+          'Hướng': ['hướng', 'hướng cửa', 'hướng ban công', 'view', 'orientation'],
+          'DT Đất': ['dt đất', 'diện tích đất', 'dt đất (m2)', 'dtđ', 'land area', 'diện tích'],
+          'DTXD': ['dtxd', 'dtcd', 'diện tích xây dựng', 'dtxd (m2)', 'construction area', 'diện tích sàn'],
+          'Giá gồm VAT': ['giá gồm vat', 'giá niêm yết', 'giá gồm vat và kpbt', 'giá gồm vat & kpbt', 'tổng giá', 'giá bán'],
+          'TTS': ['tts', 'giá thanh toán sớm', 'giá tts', 'giá tts (gồm vat)', 'giá chiết khấu'],
+          'Tiền đất': ['tiền đất', 'tổng tiền đất', 'giá đất', 'tiền đất (theo tts)'],
+          'Tiền xây': ['tiền xây', 'tổng tiền xây dựng', 'tiền xây dựng', 'tổng tiền xây'],
+          'Giá/m2': ['giá/m2', 'đơn giá/m2', 'giá/m2 (theo tts)', 'đơn giá'],
+          'Vay': ['vay', 'vay ngân hàng', 'htls', 'chính sách vay'],
+          'TTTĐ': ['tttd', 'tt tiến độ', 'thanh toán tiến độ', 'tiến độ thanh toán'],
+          'Tình trạng': ['tình trạng', 'trạng thái', 'status', 'booking', 'giỏ hàng'],
+          'Quỹ': ['quỹ', 'quỹ hàng', 'nguồn'],
+          'CSBH': ['csbh', 'chính sách bán hàng', 'chính sách'],
+          'Quà tặng': ['quà tặng', 'khuyến mãi', 'voucher'],
+          'Ngày ký HĐ': ['ngày ký hđ', 'ngày ký ttđc/ttkq', 'ngày ký', 'ttđc/ttkq'],
+          'PTG': ['ptg', 'link tài liệu', 'link ptg', 'ptg & chi can', 'ptg & chỉ căn', 'link tải tài liệu', 'link docs', 'tài liệu'],
+          'imageUrl': ['imageurl', 'ảnh', 'hình ảnh', 'image', 'picture', 'anh', 'hinh anh'],
+          'Ghi chú': ['ghi chú', 'note', 'nội dung', 'ghi chú thêm'],
+          'ProjectName': ['projectname', 'tên dự án', 'dự án', 'dự án ', 'project name', 'dự án/phân khu'],
+          'SpreadsheetID': ['spreadsheetid', 'link đối chiếu', 'link sheet']
+        };
+
+        const getStandardHeader = (header: string) => {
+          const norm = normalize(header);
+
+          // 1. Check project-specific matrix first (from Management Sheet)
+          if (headerMatrix) {
+            for (const [standard, projectHeader] of Object.entries(headerMatrix)) {
+              if (projectHeader && normalize(projectHeader) === norm) {
+                return standard;
+              }
+            }
+          }
+
+          // 2. Fallback to global HEADER_MATRIX synonyms
+          for (const [standard, synonyms] of Object.entries(HEADER_MATRIX)) {
+            if (synonyms.some(syn => {
+              const normSyn = normalize(syn);
+              return norm === normSyn || 
+                     norm.startsWith(normSyn + ' ') || 
+                     norm.endsWith(' ' + normSyn) || 
+                     norm.includes(' ' + normSyn + ' ');
+            })) {
+              return standard;
+            }
+          }
+          return header;
+        };
+
         const data: T[] = [];
         
         // Calculate shift between user's configured header row and actual header row
@@ -180,41 +387,63 @@ export async function fetchConfiguredSheetData<T>(
           endRowIndex = Math.min(dataEndRow - shift, rows.length);
         }
 
-        const normalize = (str: string) => str.normalize('NFC').toLowerCase().trim();
-
         for (let i = startRowIndex; i < endRowIndex; i++) {
           const row = rows[i];
           if (!row || row.every(cell => !cell || cell.trim() === '')) continue;
-          
+          if (row.filter(cell => cell && cell.trim() !== '').length < 2) continue;
+
           const obj: any = {};
           
+          // Extract and standardize ALL columns found in the sheet
+          headers.forEach((header, index) => {
+            if (header) {
+              const standardHeader = getStandardHeader(header);
+              const cleanHeader = standardHeader.replace(/\n/g, ' ').trim();
+              const value = row[index] ? row[index].trim() : '';
+              
+              // Only set if not already set, or if current value is empty and new value is not
+              if (!obj[cleanHeader] || (obj[cleanHeader] === '' && value !== '')) {
+                obj[cleanHeader] = value;
+              }
+            }
+          });
+
+          // If requiredFields are specified, we use them to validate the row
+          // but we return the full standardized object
+          let isValidRow = true;
           if (requiredFields && requiredFields.length > 0) {
-            requiredFields.forEach(field => {
-              const normalizedField = normalize(field);
-              const index = headers.findIndex(h => normalize(h).includes(normalizedField));
-              if (index !== -1) {
-                obj[field] = row[index] ? row[index].trim() : '';
-              }
-            });
-          } else {
-            // If no required fields specified, extract all columns with headers
-            headers.forEach((header, index) => {
-              if (header) {
-                // Clean up header for object key (remove newlines)
-                const cleanHeader = header.replace(/\n/g, ' ').trim();
-                obj[cleanHeader] = row[index] ? row[index].trim() : '';
-              }
+            isValidRow = requiredFields.every(field => {
+              const standardField = getStandardHeader(field);
+              const value = obj[standardField] || obj[field];
+              return value && value.trim() !== '';
             });
           }
-          
-          // Only add to data if the object has at least one non-empty value
-          if (Object.values(obj).some(val => val !== '')) {
+
+          if (isValidRow && Object.values(obj).some(val => val !== '')) {
             data.push(obj as T);
           }
         }
+
+        // Save to memory cache
+        cache.set(cacheKey, { data, timestamp: now });
+
+        // Save to persistent cache if requested
+        if (persistentCacheDuration > 0) {
+          try {
+            const storageKey = PERSISTENT_CACHE_PREFIX + cacheKey;
+            localStorage.setItem(storageKey, JSON.stringify({ data, timestamp: now }));
+          } catch (e) {
+            console.error('Error saving to persistent cache:', e);
+          }
+        }
+
         resolve(data);
       },
       error: (error) => reject(error)
     });
   });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
 }

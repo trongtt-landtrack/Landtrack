@@ -104,7 +104,7 @@ export const mockProjects: Project[] = [
 export const mockUser: User = {
   id: 'u1',
   name: 'Trần Trọng',
-  role: UserRole.PROJECT_MEMBER,
+  role: UserRole.USER,
   phone: '0938808522',
   email: 'tranthetrong.91@gmail.com',
   avatarUrl: 'https://picsum.photos/seed/avatar/100/100',

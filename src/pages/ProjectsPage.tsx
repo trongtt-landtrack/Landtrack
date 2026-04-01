@@ -1,23 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, Filter, LayoutGrid, Home, Building2, MapPin, ChevronRight, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Loader2, Filter, LayoutGrid, Home, Building2, MapPin, ChevronRight, X, Scale, ArrowRightLeft, Trash2, Database, ChevronUp, ChevronDown } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import Sidebar from '../components/Sidebar';
-import { getProjectConfigs } from '../services/configService';
+import GuestWarningModal from '../components/GuestWarningModal';
+import { getProjectConfigs, clearConfigCache } from '../services/configService';
 import { Project, UnitSearchResult } from '../types';
+import { STANDARD_HEADERS } from '../constants';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
-import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Link } from 'react-router-dom';
+import { fetchConfiguredSheetData, clearCache } from '../services/googleSheets';
+import { Link, useNavigate } from 'react-router-dom';
+import { useCallback } from 'react';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>(() => {
+    // Khởi tạo từ cache nếu có để tránh màn hình trắng
+    const cached = localStorage.getItem('cached_projects');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [loading, setLoading] = useState(projects.length === 0);
   const [error, setError] = useState<string | null>(null);
   
   const [searchMode, setSearchMode] = useState<'projects' | 'units'>('projects');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     developer: '',
     location: '',
@@ -34,56 +42,126 @@ export default function ProjectsPage() {
   const [unitSearchResults, setUnitSearchResults] = useState<UnitSearchResult[]>([]);
   const [isSearchingUnits, setIsSearchingUnits] = useState(false);
   const [unitSearchError, setUnitSearchError] = useState<string | null>(null);
+  const [comparisonList, setComparisonList] = useState<UnitSearchResult[]>([]);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
+  const [totalUnitsInSystem, setTotalUnitsInSystem] = useState<number>(0);
+  
+  // Guest Warning Modal State
+  const [showGuestWarning, setShowGuestWarning] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        // Load projects from config sheet
-        const configs = await getProjectConfigs();
-        
-        // Load favorites
-        let favoriteProjectIds = new Set<string>();
-        if (auth.currentUser) {
-          try {
-            const q = query(collection(db, 'favorites'), where('uid', '==', auth.currentUser.uid));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((doc) => {
-              favoriteProjectIds.add(doc.data().projectId);
-            });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.LIST, 'favorites');
-          }
-        }
-
-        const formattedProjects: Project[] = configs.map((config) => {
-          return {
-            id: config.projectId,
-            name: config.name || 'Unnamed Project',
-            developer: config.developer || '',
-            location: config.location || '',
-            type: config.type || '',
-            status: config.status || '',
-            imageUrl: config.imageUrl || `https://picsum.photos/seed/${config.projectId}/600/400`,
-            sheetUrl: config.sheetUrl || '',
-            isHot: config.isHot,
-            isFavorite: favoriteProjectIds.has(config.projectId),
-          };
-        });
-        
-        setProjects(formattedProjects);
-      } catch (err) {
-        console.error('Failed to load projects:', err);
-        setError('Không thể tải danh sách dự án. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
-      }
+  const handleProjectClick = (projectId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-    loadData();
+    if (!auth.currentUser) {
+      setShowGuestWarning(true);
+    } else {
+      navigate(`/projects/${projectId}`);
+    }
+  };
+
+  const handleUnitClick = (projectId: string, unitCode: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!auth.currentUser) {
+      setShowGuestWarning(true);
+    } else {
+      navigate(`/projects/${projectId}?tab=units&unitCode=${unitCode}`);
+    }
+  };
+
+  const loadData = useCallback(async (isSilent = false, forceRefresh = false) => {
+    try {
+      if (!isSilent) {
+        setLoading(true);
+      }
+
+      // Load projects from config sheet with optional force refresh
+      const configs = await getProjectConfigs(forceRefresh);
+      
+      // Fetch total units from master sheet for stats
+      try {
+        const MASTER_CLEAN_DATA_URL = 'https://docs.google.com/spreadsheets/d/1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M/edit?gid=1093550895';
+        const masterData = await fetchConfiguredSheetData<any>(MASTER_CLEAN_DATA_URL, 1, 2, 0);
+        setTotalUnitsInSystem(masterData.length);
+      } catch (e) {
+        console.error('Failed to fetch master unit count:', e);
+      }
+      // Load favorites
+      let favoriteProjectIds = new Set<string>();
+      if (auth.currentUser) {
+        try {
+          const q = query(collection(db, 'favorites'), where('uid', '==', auth.currentUser.uid));
+          const querySnapshot = await getDocs(q);
+          querySnapshot.forEach((doc) => {
+            if (!doc.data().unitCode) {
+              favoriteProjectIds.add(doc.data().projectId);
+            }
+          });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.LIST, 'favorites');
+        }
+      }
+
+      const formattedProjects: Project[] = configs.map((config) => {
+        return {
+          ...config,
+          id: config.projectId,
+          name: config.name || 'Unnamed Project',
+          developer: config.developer || '',
+          location: config.location || '',
+          type: config.type || '',
+          status: config.status || '',
+          imageUrl: config.imageUrl || `https://picsum.photos/seed/${config.projectId}/600/400`,
+          sheetUrl: config.sheetUrl || '',
+          isHot: config.isHot,
+          isFavorite: favoriteProjectIds.has(config.projectId),
+        };
+      });
+      
+      setProjects(formattedProjects);
+      setError(null);
+      
+      // Lưu vào cache để dùng cho lần sau
+      localStorage.setItem('cached_projects', JSON.stringify(formattedProjects));
+      
+      // Thông báo cho Navbar cập nhật thời gian
+      window.dispatchEvent(new CustomEvent('sync-success'));
+    } catch (err) {
+      console.error('Failed to load projects:', err);
+      if (!isSilent) {
+        setError('Không thể tải danh sách dự án. Vui lòng thử lại sau.');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    loadData();
+
+    // Lắng nghe sự kiện làm mới từ Navbar
+    const handleTriggerRefresh = () => {
+      // Khi nhấn nút Cập nhật, xóa cache và tải lại toàn bộ
+      clearCache();
+      clearConfigCache();
+      loadData(true, true); // Làm mới ngầm với forceRefresh = true
+    };
+
+    window.addEventListener('trigger-refresh', handleTriggerRefresh);
+    return () => window.removeEventListener('trigger-refresh', handleTriggerRefresh);
+  }, [loadData]);
+
   const handleToggleFavorite = (projectId: string, isFavorite: boolean) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, isFavorite } : p));
+    setProjects(prev => {
+      const updated = prev.map(p => p.id === projectId ? { ...p, isFavorite } : p);
+      localStorage.setItem('cached_projects', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const developers = useMemo(() => Array.from(new Set(projects.map(p => p.developer))).filter(Boolean), [projects]);
@@ -113,66 +191,66 @@ export default function ProjectsPage() {
     try {
       setIsSearchingUnits(true);
       setUnitSearchError(null);
-      const allResults: UnitSearchResult[] = [];
+      
+      // Use the Master Clean Data sheet for global search
+      const MASTER_CLEAN_DATA_URL = 'https://docs.google.com/spreadsheets/d/1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M/edit?gid=1093550895';
+      
+      const data = await fetchConfiguredSheetData<any>(
+        MASTER_CLEAN_DATA_URL,
+        1, // headerRow
+        2, // dataStartRow
+        0, // dataEndRow
+      );
 
-      // Area keywords
-      const landKeywords = ['DT Đất', 'Diện tích đất', 'DT Đất (m2)'];
-      const constKeywords = ['DTCD', 'DTXD', 'Diện tích xây dựng', 'DTXD (m2)'];
+      // Area keywords - Standardized to match HEADER_MATRIX in googleSheets.ts
+      const landKeywords = ['Diện tích đất'];
+      const constKeywords = ['Diện tích XD'];
 
       // Helper to parse area values
       const getAreaValue = (unit: any, keywords: string[]) => {
         const key = Object.keys(unit).find(k => 
-          keywords.some(kw => k.toLowerCase().includes(kw.toLowerCase()))
+          keywords.includes(k)
         );
         if (!key) return null;
         const val = parseFloat(unit[key].toString().replace(',', '.').replace(/[^0-9.]/g, ''));
         return isNaN(val) ? null : val;
       };
 
-      // Iterate through all projects that have a sheetUrl
-      const searchPromises = projects.filter(p => p.sheetUrl).map(async (project) => {
-        try {
-          const data = await fetchConfiguredSheetData<any>(
-            project.sheetUrl!,
-            project.headerRow || 1,
-            project.dataStartRow || 2,
-            project.dataEndRow || 0,
-            project.requiredFields
-          );
+      // Filter units from the master data
+      const filteredResults: UnitSearchResult[] = data.filter(unit => {
+        // Standardized identifier: "Mã căn" is the standard key from HEADER_MATRIX
+        const unitCode = (unit['Mã căn'] || unit['Mã SP']) ? (unit['Mã căn'] || unit['Mã SP']).toString().trim() : '';
+        
+        if (!unitCode) return false;
 
-          // Filter units within this project
-          const filteredUnits = data.filter(unit => {
-            // Smart Search: Check all fields
-            const unitText = Object.values(unit).join(' ').toLowerCase();
-            const matchesTerm = !unitSearchTerm || unitText.includes(unitSearchTerm.toLowerCase());
+        // Smart Search: Check all fields
+        const unitText = Object.values(unit).join(' ').toLowerCase();
+        const matchesTerm = !unitSearchTerm || unitText.includes(unitSearchTerm.toLowerCase());
 
-            const landArea = getAreaValue(unit, landKeywords);
-            const constArea = getAreaValue(unit, constKeywords);
+        const landArea = getAreaValue(unit, landKeywords);
+        const constArea = getAreaValue(unit, constKeywords);
 
-            const matchesLandMin = !landAreaMin || (landArea !== null && landArea >= parseFloat(landAreaMin));
-            const matchesLandMax = !landAreaMax || (landArea !== null && landArea <= parseFloat(landAreaMax));
-            const matchesConstMin = !constAreaMin || (constArea !== null && constArea >= parseFloat(constAreaMin));
-            const matchesConstMax = !constAreaMax || (constArea !== null && constArea <= parseFloat(constAreaMax));
+        const matchesLandMin = !landAreaMin || (landArea !== null && landArea >= parseFloat(landAreaMin));
+        const matchesLandMax = !landAreaMax || (landArea !== null && landArea <= parseFloat(landAreaMax));
+        const matchesConstMin = !constAreaMin || (constArea !== null && constArea >= parseFloat(constAreaMin));
+        const matchesConstMax = !constAreaMax || (constArea !== null && constArea <= parseFloat(constAreaMax));
 
-            return matchesTerm && matchesLandMin && matchesLandMax && matchesConstMin && matchesConstMax;
-          });
-
-          return filteredUnits.map(unit => ({
-            projectId: project.id,
-            projectName: project.name,
-            unitData: unit
-          }));
-        } catch (err) {
-          console.error(`Error searching project ${project.name}:`, err);
-          return [];
-        }
+        return matchesTerm && matchesLandMin && matchesLandMax && matchesConstMin && matchesConstMax;
+      }).map(unit => {
+        // Try to find the project name if it's in the master data (e.g. in a "Dự án" or "Tên dự án" column)
+        const projectName = unit['Dự án'] || unit['Tên dự án'] || 'Dự án khác';
+        // Try to find the projectId by matching the name with our projects list
+        const project = projects.find(p => p.name.toLowerCase() === projectName.toLowerCase());
+        
+        return {
+          projectId: project?.id || 'unknown',
+          projectName: projectName,
+          unitData: unit
+        };
       });
 
-      const resultsArray = await Promise.all(searchPromises);
-      resultsArray.forEach(results => allResults.push(...results));
-
-      setUnitSearchResults(allResults);
-      if (allResults.length === 0) {
+      setUnitSearchResults(filteredResults);
+      if (filteredResults.length === 0) {
         setUnitSearchError('Không tìm thấy căn hộ nào phù hợp.');
       }
     } catch (err) {
@@ -183,10 +261,51 @@ export default function ProjectsPage() {
     }
   };
 
+  const toggleComparison = (result: UnitSearchResult) => {
+    setComparisonList(prev => {
+      const exists = prev.find(item => item.projectId === result.projectId && item.unitData['Mã căn'] === result.unitData['Mã căn']);
+      if (exists) {
+        return prev.filter(item => !(item.projectId === result.projectId && item.unitData['Mã căn'] === result.unitData['Mã căn']));
+      }
+      if (prev.length >= 4) {
+        alert('Bạn chỉ có thể so sánh tối đa 4 căn hộ cùng lúc.');
+        return prev;
+      }
+      return [...prev, result];
+    });
+  };
+
+  const allComparisonKeys = useMemo(() => {
+    // Use standard headers as the base for comparison to ensure alignment between different projects
+    return STANDARD_HEADERS.filter(header => 
+      comparisonList.some(item => item.unitData[header] !== undefined)
+    );
+  }, [comparisonList]);
+
+  const sortedUnitResults = useMemo(() => {
+    if (!sortConfig.key || !sortConfig.direction) return unitSearchResults;
+
+    return [...unitSearchResults].sort((a, b) => {
+      const getVal = (item: UnitSearchResult) => {
+        const val = item.unitData[sortConfig.key];
+        if (!val) return 0;
+        // Clean numeric strings: "1.200.000.000" -> 1200000000
+        const num = parseFloat(val.toString().replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9.]/g, ''));
+        return isNaN(num) ? 0 : num;
+      };
+
+      const valA = getVal(a);
+      const valB = getVal(b);
+
+      if (sortConfig.direction === 'asc') return valA - valB;
+      return valB - valA;
+    });
+  }, [unitSearchResults, sortConfig]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-center text-gray-900 mb-8 uppercase tracking-wider">
-        Hệ thống quản lý dự án
+      <h1 className="text-3xl font-display font-bold text-center text-primary mb-8 uppercase tracking-wider">
+        DANH MỤC DỰ ÁN & QUỸ CĂN
       </h1>
 
       {/* Smart Search and Filters Block */}
@@ -194,18 +313,27 @@ export default function ProjectsPage() {
         <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
           <button 
             onClick={() => setSearchMode('projects')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${searchMode === 'projects' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'projects' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
           >
             <LayoutGrid className="w-4 h-4" />
             TÌM DỰ ÁN
           </button>
           <button 
             onClick={() => setSearchMode('units')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
           >
             <Home className="w-4 h-4" />
             TÌM CĂN HỘ (SMART SEARCH)
           </button>
+          
+          <div className="ml-auto flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
+              <Database className="w-4 h-4 text-accent" />
+              <span className="text-xs font-display font-bold text-gray-600">
+                TỔNG QUỸ CĂN: <span className="text-accent">{totalUnitsInSystem.toLocaleString()}</span>
+              </span>
+            </div>
+          </div>
         </div>
 
         {searchMode === 'projects' ? (
@@ -217,7 +345,7 @@ export default function ProjectsPage() {
                 </div>
                 <input
                   type="text"
-                  className="block w-full pl-10 pr-3 py-3 sm:py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all"
+                  className="block w-full pl-10 pr-3 py-3 sm:py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans sm:text-sm transition-all"
                   placeholder="Tìm tên dự án, khu vực..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -225,7 +353,7 @@ export default function ProjectsPage() {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-3 sm:py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center justify-center gap-2"
+                className={`px-4 py-3 sm:py-2 border rounded-xl text-sm font-display font-bold transition-all flex items-center justify-center gap-2 ${showFilters ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
               >
                 <Filter className="w-4 h-4" />
                 {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
@@ -233,9 +361,9 @@ export default function ProjectsPage() {
             </div>
             
             {showFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2">
                 <select 
-                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent bg-white font-sans"
                   value={filters.developer}
                   onChange={(e) => setFilters(prev => ({ ...prev, developer: e.target.value }))}
                 >
@@ -244,7 +372,7 @@ export default function ProjectsPage() {
                 </select>
 
                 <select 
-                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent bg-white font-sans"
                   value={filters.location}
                   onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
                 >
@@ -253,7 +381,7 @@ export default function ProjectsPage() {
                 </select>
 
                 <select 
-                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent bg-white font-sans"
                   value={filters.type}
                   onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
                 >
@@ -262,7 +390,7 @@ export default function ProjectsPage() {
                 </select>
 
                 <select 
-                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  className="block w-full pl-3 pr-10 py-3 sm:py-2 text-sm border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent bg-white font-sans"
                   value={filters.status}
                   onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                 >
@@ -274,79 +402,130 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-grow">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-grow">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-3 sm:py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans sm:text-sm transition-all"
+                    placeholder="Nhập mã căn, phân khu, loại hình... (Tìm trên tất cả dự án)"
+                    value={unitSearchTerm}
+                    onChange={(e) => setUnitSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleGlobalUnitSearch()}
+                  />
                 </div>
-                <input
-                  type="text"
-                  className="block w-full pl-10 pr-3 py-3 sm:py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all"
-                  placeholder="Nhập mã căn, phân khu, loại hình... (Tìm trên tất cả dự án)"
-                  value={unitSearchTerm}
-                  onChange={(e) => setUnitSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleGlobalUnitSearch()}
-                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`px-4 py-3 sm:py-2 border rounded-xl text-sm font-display font-bold transition-all flex items-center justify-center gap-2 ${showFilters ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <Filter className="w-4 h-4" />
+                    {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+                  </button>
+                  <button
+                    onClick={handleGlobalUnitSearch}
+                    disabled={isSearchingUnits}
+                    className="px-6 py-3 sm:py-2 bg-gradient-gold text-white rounded-xl text-sm font-display font-bold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSearchingUnits ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    TÌM KIẾM
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={handleGlobalUnitSearch}
-                disabled={isSearchingUnits}
-                className="px-6 py-3 sm:py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isSearchingUnits ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                TÌM KIẾM
-              </button>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg border border-orange-100">
+                  <Database className="w-3.5 h-3.5 text-orange-600" />
+                  <span className="text-[11px] font-display font-bold text-orange-900">
+                    Hệ thống: {totalUnitsInSystem.toLocaleString()} căn
+                  </span>
+                </div>
+
+                <div className="h-4 w-px bg-gray-200 mx-1 hidden sm:block" />
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                    <ArrowRightLeft className="w-3 h-3 rotate-90" /> Sắp xếp:
+                  </span>
+                  {[
+                    { label: 'Diện tích đất', key: 'Diện tích đất' },
+                    { label: 'Giá niêm yết', key: 'Giá niêm yết' },
+                    { label: 'Đơn giá/m2', key: 'Đơn giá/m2' }
+                  ].map((sort) => (
+                    <button
+                      key={sort.key}
+                      onClick={() => {
+                        setSortConfig(prev => ({
+                          key: sort.key,
+                          direction: prev.key === sort.key && prev.direction === 'asc' ? 'desc' : 'asc'
+                        }));
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-display font-bold border transition-all flex items-center gap-1 ${sortConfig.key === sort.key ? 'bg-primary border-primary text-white shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                    >
+                      {sort.label}
+                      {sortConfig.key === sort.key && (
+                        <span className="text-[8px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                  <MapPin className="w-3 h-3" /> Diện tích đất (m2)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Từ"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={landAreaMin}
-                    onChange={(e) => setLandAreaMin(e.target.value)}
-                  />
-                  <span className="text-gray-400">-</span>
-                  <input
-                    type="number"
-                    placeholder="Đến"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={landAreaMax}
-                    onChange={(e) => setLandAreaMax(e.target.value)}
-                  />
+            {showFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-display font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                    <MapPin className="w-3 h-3" /> Diện tích đất (m2)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Từ"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                      value={landAreaMin}
+                      onChange={(e) => setLandAreaMin(e.target.value)}
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                      type="number"
+                      placeholder="Đến"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                      value={landAreaMax}
+                      onChange={(e) => setLandAreaMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-display font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                    <Building2 className="w-3 h-3" /> Diện tích xây dựng (m2)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Từ"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                      value={constAreaMin}
+                      onChange={(e) => setConstAreaMin(e.target.value)}
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                      type="number"
+                      placeholder="Đến"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                      value={constAreaMax}
+                      onChange={(e) => setConstAreaMax(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                  <Building2 className="w-3 h-3" /> Diện tích xây dựng (m2)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Từ"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={constAreaMin}
-                    onChange={(e) => setConstAreaMin(e.target.value)}
-                  />
-                  <span className="text-gray-400">-</span>
-                  <input
-                    type="number"
-                    placeholder="Đến"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    value={constAreaMax}
-                    onChange={(e) => setConstAreaMax(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-end gap-4 pt-2">
               <button
                 onClick={() => {
                   setUnitSearchTerm('');
@@ -356,8 +535,9 @@ export default function ProjectsPage() {
                   setConstAreaMax('');
                   setUnitSearchResults([]);
                   setUnitSearchError(null);
+                  setSortConfig({ key: '', direction: null });
                 }}
-                className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+                className="text-xs font-display font-bold text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
               >
                 <X className="w-3 h-3" /> XÓA TẤT CẢ BỘ LỌC
               </button>
@@ -368,11 +548,11 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Main Content */}
-        <div className="lg:col-span-3">
+        <div className={searchMode === 'projects' ? "lg:col-span-3" : "lg:col-span-4"}>
           {searchMode === 'projects' ? (
             loading ? (
               <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-accent" />
               </div>
             ) : error ? (
               <div className="text-center text-red-500 py-8">{error}</div>
@@ -380,7 +560,12 @@ export default function ProjectsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProjects.length > 0 ? (
                   filteredProjects.map(project => (
-                    <ProjectCard key={project.id} project={project} onToggleFavorite={handleToggleFavorite} />
+                    <ProjectCard 
+                      key={project.id} 
+                      project={project} 
+                      onToggleFavorite={handleToggleFavorite} 
+                      onClick={handleProjectClick}
+                    />
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12 text-gray-500">
@@ -393,52 +578,79 @@ export default function ProjectsPage() {
             <div className="space-y-4">
               {isSearchingUnits ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-                  <p className="text-gray-500 font-medium animate-pulse">Đang tìm kiếm trên tất cả dự án...</p>
+                  <Loader2 className="h-10 w-10 animate-spin text-accent" />
+                  <p className="text-gray-500 font-sans font-medium animate-pulse">Đang tìm kiếm trên tất cả dự án...</p>
                 </div>
               ) : unitSearchError ? (
                 <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-gray-500">{unitSearchError}</p>
+                  <p className="text-gray-500 font-sans">{unitSearchError}</p>
                 </div>
               ) : unitSearchResults.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-lg font-bold text-gray-900">Kết quả tìm kiếm ({unitSearchResults.length})</h2>
-                    <button onClick={() => setUnitSearchResults([])} className="text-sm text-blue-600 hover:underline">Xóa kết quả</button>
+                    <h2 className="text-lg font-display font-bold text-primary">Kết quả tìm kiếm ({sortedUnitResults.length})</h2>
+                    <button onClick={() => setUnitSearchResults([])} className="text-sm font-display font-bold text-accent hover:underline">Xóa kết quả</button>
                   </div>
-                  {unitSearchResults.map((result, idx) => (
-                    <Link 
-                      key={`${result.projectId}-${idx}`}
-                      to={`/projects/${result.projectId}?tab=units&unitCode=${result.unitData['Mã căn'] || ''}`}
-                      className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="flex-grow">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded uppercase tracking-wider">
-                            {result.projectName}
-                          </span>
-                          <span className="text-sm font-bold text-gray-900">
-                            {result.unitData['Mã căn'] || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1">
-                          {Object.entries(result.unitData).slice(0, 8).map(([key, val]) => (
-                            <div key={key} className="text-[11px]">
-                              <span className="text-gray-400">{key}:</span> <span className="text-gray-700 font-medium">{val as string}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sortedUnitResults.map((result, idx) => {
+                      const isComparing = comparisonList.some(item => item.projectId === result.projectId && item.unitData['Mã căn'] === result.unitData['Mã căn']);
+                      return (
+                        <div 
+                          key={`${result.projectId}-${idx}`}
+                          className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all group flex flex-col justify-between gap-4 relative"
+                        >
+                          <div className="flex-grow">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-display font-bold rounded uppercase tracking-wider">
+                                  {result.projectName}
+                                </span>
+                                <span className="text-sm font-display font-bold text-primary">
+                                  {result.unitData['Mã căn'] || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    toggleComparison(result);
+                                  }}
+                                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-display font-bold ${isComparing ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                  title={isComparing ? "Bỏ so sánh" : "Thêm vào so sánh"}
+                                >
+                                  <ArrowRightLeft className="w-3 h-3" />
+                                  {isComparing ? 'ĐANG SO SÁNH' : 'SO SÁNH'}
+                                </button>
+                                <button 
+                                  onClick={(e) => handleUnitClick(result.projectId, result.unitData['Mã căn'] || '', e)}
+                                  className="flex items-center text-accent font-display font-bold text-xs group-hover:translate-x-1 transition-transform"
+                                >
+                                  CHI TIẾT <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                          ))}
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                              {STANDARD_HEADERS
+                                .filter(header => result.unitData[header] !== undefined)
+                                .slice(0, 10)
+                                .map(header => (
+                                  <div key={header} className="text-[12px] flex flex-col">
+                                    <span className="text-gray-400 font-display font-medium">{header}:</span> 
+                                    <span className="text-gray-700 font-sans font-semibold truncate">{result.unitData[header] as string}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center text-blue-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
-                        CHI TIẾT <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </Link>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                   <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Nhập thông tin để bắt đầu tìm kiếm thông minh</p>
+                  <p className="text-gray-500 font-sans">Nhập thông tin để bắt đầu tìm kiếm thông minh</p>
                 </div>
               )}
             </div>
@@ -446,10 +658,165 @@ export default function ProjectsPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="lg:col-span-1">
-          <Sidebar projects={projects} />
-        </div>
+        {searchMode === 'projects' && (
+          <div className="lg:col-span-1">
+            <Sidebar projects={projects} onProjectClick={handleProjectClick} />
+          </div>
+        )}
       </div>
+
+      {/* Comparison Floating Bar */}
+      {comparisonList.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white shadow-2xl rounded-2xl border border-gray-200 p-4 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <ArrowRightLeft className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm font-display font-bold text-gray-900">So sánh căn hộ</p>
+              <p className="text-[10px] text-gray-500 uppercase font-display font-bold tracking-wider">{comparisonList.length}/4 căn đã chọn</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            {comparisonList.map((item, idx) => (
+              <div key={idx} className="relative group">
+                <div className="w-10 h-10 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center text-[10px] font-display font-bold text-gray-600 overflow-hidden">
+                  {item.unitData['Mã căn']?.toString().slice(-4) || '...'}
+                </div>
+                <button 
+                  onClick={() => toggleComparison(item)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {Array.from({ length: 4 - comparisonList.length }).map((_, i) => (
+              <div key={i} className="w-10 h-10 bg-gray-50 border border-dashed border-gray-200 rounded-lg flex items-center justify-center">
+                <Scale className="w-4 h-4 text-gray-300" />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 ml-2">
+            <button 
+              onClick={() => setShowComparisonModal(true)}
+              disabled={comparisonList.length < 2}
+              className="px-6 py-2 bg-orange-600 text-white rounded-xl text-sm font-display font-bold hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-600/20"
+            >
+              SO SÁNH NGAY
+            </button>
+            <button 
+              onClick={() => setComparisonList([])}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="Xóa tất cả"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison Modal */}
+      {showComparisonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowComparisonModal(false)} />
+          <div className="relative bg-white w-full max-w-6xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-100 p-2 rounded-xl">
+                  <ArrowRightLeft className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-display font-bold text-gray-900">Bảng so sánh căn hộ</h2>
+                  <p className="text-sm font-sans text-gray-500">Đối chiếu thông tin chi tiết giữa các căn đã chọn</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowComparisonModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-grow overflow-auto p-6">
+              <div className="min-w-full inline-block align-middle">
+                <div className="overflow-hidden border border-gray-200 rounded-2xl">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-display font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                          Hạng mục
+                        </th>
+                        {comparisonList.map((item, idx) => (
+                          <th key={idx} className="px-6 py-4 text-center text-xs font-display font-bold text-primary uppercase tracking-wider min-w-[200px]">
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-accent text-[10px] font-display font-bold">{item.projectName}</span>
+                              <span className="text-sm font-display font-bold">{item.unitData['Mã căn'] || `Căn ${idx + 1}`}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {/* Project Name Row */}
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-display font-bold text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-200">
+                          Dự án
+                        </td>
+                        {comparisonList.map((item, idx) => (
+                          <td key={idx} className="px-6 py-4 text-center text-sm font-sans text-gray-600 font-medium">
+                            {item.projectName}
+                          </td>
+                        ))}
+                      </tr>
+                      {/* Dynamic Rows */}
+                      {allComparisonKeys.map((key) => (
+                        <tr key={key} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-display font-bold text-gray-500 sticky left-0 bg-white z-10 border-r border-gray-200">
+                            {key}
+                          </td>
+                          {comparisonList.map((item, idx) => {
+                            const val = item.unitData[key];
+                            const isDifferent = comparisonList.some(other => other.unitData[key] !== val);
+                            return (
+                              <td key={idx} className={`px-6 py-4 text-center text-sm font-sans ${isDifferent ? 'text-orange-600 font-semibold bg-orange-50/30' : 'text-gray-600'}`}>
+                                {val?.toString() || '-'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setComparisonList([])}
+                className="px-6 py-2 text-sm font-display font-bold text-gray-500 hover:text-red-500 transition-colors"
+              >
+                XÓA TẤT CẢ
+              </button>
+              <button 
+                onClick={() => setShowComparisonModal(false)}
+                className="px-8 py-2 bg-gray-900 text-white rounded-xl text-sm font-display font-bold hover:bg-black transition-all"
+              >
+                ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <GuestWarningModal 
+        isOpen={showGuestWarning} 
+        onClose={() => setShowGuestWarning(false)} 
+      />
     </div>
   );
 }

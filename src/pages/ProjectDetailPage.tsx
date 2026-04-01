@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { Share2, LayoutGrid, Home, File, Loader2, BarChart3, ExternalLink, MapPin } from 'lucide-react';
+import { Share2, LayoutGrid, Home, File, Loader2, BarChart3, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import Tabs from '../components/Tabs';
 import UnitDataTab from '../components/UnitDataTab';
 import DocsTab from '../components/DocsTab';
 import DashboardTab from '../components/DashboardTab';
-import { getProjectConfig } from '../services/configService';
+import { getProjectConfig, clearConfigCache } from '../services/configService';
+import { fetchConfiguredSheetData, clearCache } from '../services/googleSheets';
+import { MASTER_SHEET_URL } from '../constants';
 import { Project, UserRole } from '../types';
 import { auth, db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -28,6 +30,12 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [docsSearchTerm, setDocsSearchTerm] = useState('');
+  
+  // Master data for all tabs
+  const [masterData, setMasterData] = useState<any[]>([]);
+  const [masterLoading, setMasterLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -36,9 +44,22 @@ export default function ProjectDetailPage() {
     if (tab) setActiveTab(tab);
   }, [location.search]);
 
-  const handleNavigate = (tab: string, newFilters: Record<string, string>) => {
+  const handleNavigate = (tab: string, params?: any) => {
     setActiveTab(tab);
-    setFilters(newFilters);
+    if (params && typeof params === 'object') {
+      if (params.filters || params.searchTerm) {
+        if (params.filters) setFilters(params.filters);
+        if (params.searchTerm) setDocsSearchTerm(params.searchTerm);
+      } else {
+        // Assume params is the filters object if no specific keys found
+        setFilters(params);
+      }
+    }
+    
+    // Clear docs search term if navigating away from docs tab
+    if (tab !== 'docs') {
+      setDocsSearchTerm('');
+    }
   };
 
   useEffect(() => {
@@ -54,6 +75,7 @@ export default function ProjectDetailPage() {
         }
 
         const projectData = {
+          ...config,
           id: config.projectId,
           name: config.name || 'Unnamed Project',
           slogan: config.slogan || '',
@@ -73,6 +95,8 @@ export default function ProjectDetailPage() {
           filterFields: config.filterFields,
           docStatsField: config.docStatsField,
           docLinkField: config.docLinkField,
+          headerMatrix: config.headerMatrix,
+          standardHeaders: config.standardHeaders,
         };
 
         setProject(projectData);
@@ -87,41 +111,76 @@ export default function ProjectDetailPage() {
     loadProject();
   }, [id]);
 
+  const loadMasterData = useCallback(async (forceRefresh = false) => {
+    if (!project?.name) return;
+    
+    try {
+      setMasterLoading(true);
+      // Use 12 hours persistent cache as requested for Overview tab
+      const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+      const data = await fetchConfiguredSheetData<any>(
+        MASTER_SHEET_URL, 
+        1, 2, 0, 
+        undefined, 
+        undefined, 
+        forceRefresh ? 0 : TWELVE_HOURS
+      );
+      setMasterData(data);
+      setLastUpdated(new Date());
+    } catch (err) {
+      console.error('Failed to load master data:', err);
+    } finally {
+      setMasterLoading(false);
+    }
+  }, [project?.name]);
+
+  useEffect(() => {
+    if (project?.name && masterData.length === 0) {
+      loadMasterData();
+    }
+  }, [project?.name, loadMasterData, masterData.length]);
+
+  useEffect(() => {
+    const handleTriggerRefresh = () => {
+      clearCache();
+      clearConfigCache();
+      loadMasterData(true);
+      // Dispatch success event for Navbar to update its timestamp
+      window.dispatchEvent(new CustomEvent('sync-success'));
+    };
+
+    window.addEventListener('trigger-refresh', handleTriggerRefresh);
+    return () => {
+      window.removeEventListener('trigger-refresh', handleTriggerRefresh);
+    };
+  }, [loadMasterData]);
+
   if (loading || roleLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-      </div>
-    );
-  }
-
-  if (role === 'pending') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Tài khoản của bạn đang chờ duyệt.</h2>
-        <p className="text-gray-600">Vui lòng liên hệ quản trị viên để được cấp quyền.</p>
+      <div className="flex justify-center items-center min-h-screen bg-accent/5">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     );
   }
 
   if (error || !project) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">{error || 'Không tìm thấy dự án'}</h2>
-        <Link to="/" className="text-blue-600 hover:underline">Quay lại danh sách dự án</Link>
+      <div className="min-h-screen bg-accent/5 flex flex-col items-center justify-center p-4">
+        <h2 className="text-2xl font-display font-bold text-primary mb-4">{error || 'Không tìm thấy dự án'}</h2>
+        <Link to="/" className="text-accent font-sans hover:underline">Quay lại danh sách dự án</Link>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-12">
+    <div className="bg-accent/5 min-h-screen pb-12">
       {/* Breadcrumbs */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <nav className="flex text-sm text-gray-500">
-            <Link to="/" className="hover:text-gray-900 font-medium">Trang chủ</Link>
+          <nav className="flex text-sm text-primary/50">
+            <Link to="/" className="hover:text-primary font-display font-bold">Trang chủ</Link>
             <span className="mx-2">/</span>
-            <span className="text-gray-900">Chi tiết dự án</span>
+            <span className="text-primary font-sans">Chi tiết dự án</span>
           </nav>
         </div>
       </div>
@@ -132,22 +191,32 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="space-y-2 sm:space-y-3 w-full sm:w-auto">
               <div className="flex items-center justify-between sm:justify-start gap-3">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 uppercase truncate">{project.name}</h1>
-                {project.sheetUrl && (
-                  <a href={project.sheetUrl} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-600 transition-colors flex-shrink-0">
-                    <ExternalLink className="w-5 h-5" />
-                  </a>
-                )}
+                <h1 className="text-xl sm:text-2xl font-display font-bold text-primary uppercase truncate">{project.name}</h1>
+                <div className="flex items-center gap-2">
+                  {project.sheetUrl && (
+                    <a href={project.sheetUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-gold-600 transition-colors flex-shrink-0">
+                      <ExternalLink className="w-5 h-5" />
+                    </a>
+                  )}
+                </div>
               </div>
               
-              {project.location && (
-                <div className="flex items-center gap-1.5 text-gray-500 text-sm sm:text-base">
-                  <MapPin className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{project.location}</span>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {/* {project.location && (
+                  <div className="flex items-center gap-1.5 text-primary/50 text-xs sm:text-sm font-sans">
+                    <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{project.location}</span>
+                  </div>
+                )} */}
+                {project.location && (
+                  <div className="flex items-center gap-1.5 text-primary/50 text-xs sm:text-sm font-sans">
+                    <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">{project.location}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <button className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors">
+            <button className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-accent/10 hover:bg-accent/20 text-primary/80 rounded-xl text-sm font-display font-bold transition-colors">
               Chia sẻ <Share2 className="w-4 h-4" />
             </button>
           </div>
@@ -168,7 +237,13 @@ export default function ProjectDetailPage() {
               dataEndRow={project.dataEndRow}
               requiredFields={project.requiredFields}
               statsFields={project.statsFields}
+              headerMatrix={project.headerMatrix}
+              standardHeaders={project.standardHeaders}
+              projectName={project.name}
+              agents={project.agents}
               onNavigate={handleNavigate} 
+              initialData={masterData}
+              initialLoading={masterLoading}
             />
           )}
 
@@ -180,10 +255,15 @@ export default function ProjectDetailPage() {
               dataEndRow={project.dataEndRow}
               requiredFields={project.requiredFields}
               filterFields={project.filterFields}
+              headerMatrix={project.headerMatrix}
+              standardHeaders={project.standardHeaders}
               initialFilters={filters} 
               initialSearchTerm={new URLSearchParams(location.search).get('unitCode') || ''}
               projectName={project.name}
               projectId={project.id}
+              onNavigate={handleNavigate}
+              initialData={masterData}
+              initialLoading={masterLoading}
             />
           )}
 
@@ -196,6 +276,11 @@ export default function ProjectDetailPage() {
               requiredFields={project.requiredFields}
               docStatsField={project.docStatsField}
               docLinkField={project.docLinkField}
+              headerMatrix={project.headerMatrix}
+              projectName={project.name}
+              initialSearchTerm={docsSearchTerm}
+              initialData={masterData}
+              initialLoading={masterLoading}
             />
           )}
 
@@ -208,7 +293,7 @@ export default function ProjectDetailPage() {
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">PHÂN KHU</span>
                   </div>
                   <div className="px-4 py-2">
-                    <h3 className="text-xl font-bold text-blue-900">{sub.code}</h3>
+                    <h3 className="text-xl font-bold text-primary">{sub.code}</h3>
                   </div>
                   <div className="h-48 relative">
                     <img src={sub.imageUrl} alt={sub.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />

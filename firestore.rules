@@ -29,6 +29,8 @@ service cloud.firestore {
     //   - phone: string (optional)
     //   - email: string (required)
     //   - avatarUrl: string (optional)
+    //   - status: string (required)
+    //   - createdAt: string (required)
     //
     // Collection: favorites
     // Document ID: {favoriteId}
@@ -51,23 +53,22 @@ service cloud.firestore {
     
     function isSuperAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "tranthetrong91@gmail.com"));
+        (request.auth.token.email == "tranthetrong91@gmail.com" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin'));
     }
 
-    function isManager() {
-      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return isSuperAdmin() || role == 'manager';
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
+             : 'none';
     }
 
-    function isSales() {
-      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return isManager() || role == 'sales';
-    }
-
-    function isPending() {
-      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      return role == 'pending';
+    function isManagement() {
+      let role = getUserRole();
+      return isSuperAdmin() || role == 'project_director';
     }
 
     function hasRequiredFields(fields) {
@@ -78,6 +79,12 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(fields);
     }
 
+    function isValidString(field, min, max) {
+      return request.resource.data[field] is string && 
+             request.resource.data[field].size() >= min && 
+             request.resource.data[field].size() <= max;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -86,28 +93,74 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
 
+    match /allowed_phones/{id} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
     match /projects/{projectId} {
-      allow read: if isAuthenticated() && !isPending();
-      allow create, update, delete: if isManager();
+      allow read: if true;
+      allow create, update, delete: if isManagement();
     }
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isSuperAdmin();
-      allow create: if isOwner(userId) && hasRequiredFields(['id', 'name', 'role', 'email', 'status', 'createdAt']);
-      allow update: if isOwner(userId) || isSuperAdmin();
+      
+      function isValidUser() {
+        return hasRequiredFields(['id', 'name', 'role', 'email', 'status', 'createdAt']) &&
+               hasOnlyAllowedFields(['id', 'name', 'role', 'email', 'status', 'createdAt', 'phone', 'avatarUrl']) &&
+               isValidString('name', 1, 100) &&
+               request.resource.data.role is string &&
+               request.resource.data.email is string &&
+               request.resource.data.status is string &&
+               request.resource.data.createdAt is string;
+      }
+
+      allow create: if isOwner(userId) 
+                    && isValidUser()
+                    && request.resource.data.role == 'user';
+                    
+      allow update: if isSuperAdmin() || 
+                    (isOwner(userId) 
+                     && isValidUser()
+                     && request.resource.data.role == resource.data.role
+                     && request.resource.data.status == resource.data.status
+                     && request.resource.data.email == resource.data.email
+                     && request.resource.data.createdAt == resource.data.createdAt);
+                     
       allow delete: if isSuperAdmin();
     }
 
     match /favorites/{favoriteId} {
-      allow read: if isOwner(resource.data.uid) || isSuperAdmin();
-      allow create: if isOwner(request.resource.data.uid) && hasRequiredFields(['uid', 'projectId']);
-      allow update: if isOwner(resource.data.uid) || isSuperAdmin();
-      allow delete: if isOwner(resource.data.uid) || isSuperAdmin();
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.uid || isSuperAdmin());
+      
+      function isValidFavorite() {
+        return hasRequiredFields(['uid', 'projectId', 'timestamp']) &&
+               hasOnlyAllowedFields(['uid', 'projectId', 'unitCode', 'timestamp']) &&
+               request.resource.data.uid == request.auth.uid &&
+               isValidString('projectId', 1, 100) &&
+               (!('unitCode' in request.resource.data) || (request.resource.data.unitCode is string && request.resource.data.unitCode.size() <= 100)) &&
+               request.resource.data.timestamp is timestamp;
+      }
+
+      allow create: if isAuthenticated() && isValidFavorite();
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid) && isValidFavorite();
+      allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isSuperAdmin());
     }
 
     match /user_history/{historyId} {
       allow read: if isOwner(resource.data.uid) || isSuperAdmin();
-      allow create: if isOwner(request.resource.data.uid) && hasRequiredFields(['uid', 'action', 'details', 'timestamp']);
+      
+      function isValidHistory() {
+        return hasRequiredFields(['uid', 'action', 'projectId', 'unitCode', 'timestamp']) &&
+               request.resource.data.uid == request.auth.uid &&
+               isValidString('action', 1, 50) &&
+               isValidString('projectId', 1, 100) &&
+               isValidString('unitCode', 1, 100) &&
+               request.resource.data.timestamp is timestamp;
+      }
+
+      allow create: if isOwner(request.resource.data.uid) && isValidHistory();
       allow update, delete: if isSuperAdmin();
     }
   }

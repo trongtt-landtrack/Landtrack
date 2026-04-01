@@ -43,6 +43,20 @@
         "projectId": { "type": "string" }
       },
       "required": ["uid", "projectId"]
+    },
+    "UserHistory": {
+      "title": "User History",
+      "description": "Log of user interactions with units.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "projectId": { "type": "string" },
+        "unitCode": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "action", "projectId", "unitCode", "timestamp"]
     }
   },
   "firestore": {
@@ -57,6 +71,10 @@
     "/favorites/{favoriteId}": {
       "schema": { "$ref": "Favorite" },
       "description": "Collection of favorite projects."
+    },
+    "/user_history/{historyId}": {
+      "schema": { "$ref": "UserHistory" },
+      "description": "Collection of user interaction logs."
     }
   }
 }

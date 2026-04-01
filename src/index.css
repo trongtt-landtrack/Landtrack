@@ -1,8 +1,95 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-primary: #1e40af; /* blue-800 */
-  --color-accent: #f59e0b; /* amber-500 */
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Premium Colors */
+  --color-primary: #0f172a; /* Deep slate/navy for luxury background/text */
+  --color-accent: #D4AF37; /* Metallic Gold */
+  --color-accent-light: #FBF8F1; /* Warm white/cream */
+  
+  --color-gold-300: #F3E5AB;
+  --color-gold-400: #E5C158;
+  --color-gold-500: #D4AF37;
+  --color-gold-600: #AA7C11;
+  
+  --color-burgundy-500: #800020;
+  --color-burgundy-600: #5c0017;
+  
+  --color-emerald-500: #043927;
+  --color-emerald-600: #022418;
+  
+  --color-sky-500: #87CEEB;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #FAFAFA;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-gold {
+    background-image: linear-gradient(135deg, var(--color-gold-400) 0%, var(--color-gold-500) 50%, var(--color-gold-600) 100%);
+  }
+  .text-gradient-gold {
+    background-image: linear-gradient(135deg, var(--color-gold-400) 0%, var(--color-gold-600) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .border-gradient-gold {
+    border-image: linear-gradient(135deg, var(--color-gold-400), var(--color-gold-600)) 1;
+  }
+  .bg-gradient-burgundy {
+    background-image: linear-gradient(135deg, var(--color-burgundy-500) 0%, var(--color-burgundy-600) 100%);
+  }
+  .bg-gradient-emerald {
+    background-image: linear-gradient(135deg, var(--color-emerald-500) 0%, var(--color-emerald-600) 100%);
+  }
+  .logo-text-gradient {
+    background-image: linear-gradient(135deg, #E5C158 0%, #F3E5AB 40%, #D4AF37 60%, #AA7C11 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+    -webkit-text-stroke: 0.5px rgba(170, 124, 17, 0.5);
+  }
+  
+  .metallic-border {
+    background: linear-gradient(135deg, #e6d070 0%, #947a26 25%, #fdf0a6 50%, #947a26 75%, #e6d070 100%);
+    padding: 2px;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  }
+  
+  .metallic-border-inner {
+    background-color: #0f172a; /* Màu nền tương ứng logo (Deep Navy/Slate) */
+    border-radius: calc(0.75rem - 2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

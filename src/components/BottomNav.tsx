@@ -22,7 +22,7 @@ export default function BottomNav() {
             key={item.path}
             to={item.path}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 text-xs font-medium transition-colors",
+              "flex flex-col items-center gap-1 p-2 text-xs font-display font-bold transition-colors",
               isActive ? "text-blue-700" : "text-gray-500"
             )}
           >

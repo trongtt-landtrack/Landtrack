@@ -1,3 +1,12 @@
+export interface Agent {
+  id: string;
+  name: string;
+  link?: string;
+  dlLink?: string;
+  dlText?: string;
+  projectLink?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -19,6 +28,9 @@ export interface Project {
   filterFields?: string[];
   docStatsField?: string;
   docLinkField?: string;
+  headerMatrix?: Record<string, string>;
+  standardHeaders?: string[];
+  agents?: Agent[];
 }
 
 export interface ProjectConfig {
@@ -40,6 +52,9 @@ export interface ProjectConfig {
   filterFields: string[];
   docStatsField: string;
   docLinkField: string;
+  headerMatrix: Record<string, string>;
+  standardHeaders: string[];
+  agents?: Agent[];
 }
 
 export interface Subdivision {
@@ -53,10 +68,8 @@ export interface Subdivision {
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
   PROJECT_DIRECTOR = 'project_director',
-  DEPARTMENT_HEAD = 'department_head',
-  TEAM_LEADER = 'team_leader',
-  PROJECT_ADMIN = 'project_admin',
-  PROJECT_MEMBER = 'project_member',
+  USER = 'user',
+  PENDING = 'pending',
 }
 
 export interface User {

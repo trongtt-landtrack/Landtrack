@@ -20,10 +20,17 @@ export default function AppSidebar({ user }: AppSidebarProps) {
     <div className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-screen sticky top-0">
       <div className="p-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">
-            S
+          <div className="metallic-border w-10 h-10">
+            <div className="metallic-border-inner">
+              <img 
+                src="https://github.com/trongtt-landtrack/Anh-Logo/blob/main/xql6xl4b.png?raw=true" 
+                alt="LandTrack Logo" 
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           </div>
-          <span className="font-bold text-xl tracking-tight text-blue-900">LANDTRACK</span>
+          <span className="font-display font-black text-2xl tracking-tight logo-text-gradient">LANDTRACK</span>
         </Link>
       </div>
 

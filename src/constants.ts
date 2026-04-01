@@ -8,3 +8,11 @@ export const PROVINCES = [
   "Tây Ninh", "Bình Dương", "Đồng Nai", "Bà Rịa - Vũng Tàu", "Long An", "Tiền Giang", "Bến Tre", 
   "Trà Vinh", "Vĩnh Long", "Đồng Tháp", "An Giang", "Kiên Giang", "Hậu Giang", "Sóc Trăng", "Bạc Liêu", "Cà Mau"
 ];
+
+export const STANDARD_HEADERS = [
+  'ĐL', 'Mã căn', 'Phân khu', 'Loại hình', 'TCBG', 'Số tầng', 'Hướng', 'DT Đất', 'DTXD', 
+  'Giá gồm VAT', 'TTS', 'Tiền đất', 'Tiền xây', 'Giá/m2', 'Vay', 'TTTĐ', 'Tình trạng', 
+  'Quỹ', 'CSBH', 'Quà tặng', 'Ngày ký HĐ', 'PTG', 'Ghi chú'
+];
+
+export const MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M/edit?gid=1093550895';

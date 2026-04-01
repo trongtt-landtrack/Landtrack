@@ -7,14 +7,48 @@ import { auth } from '../firebase';
 export default function Navbar() {
   const [user, setUser] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<string>(() => {
+    return localStorage.getItem('last_sync_time') || '--:--:--';
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
-    return () => unsubscribe();
+
+    const handleUpdateSuccess = () => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      const fullStr = `${dateStr} ${timeStr}`;
+      
+      setLastUpdate(fullStr);
+      localStorage.setItem('last_sync_time', fullStr);
+      setIsRefreshing(false);
+      
+      // Hiển thị thông báo thành công tạm thời
+      setSuccessMsg('Cập nhật thành công!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    };
+
+    window.addEventListener('sync-success', handleUpdateSuccess);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('sync-success', handleUpdateSuccess);
+    };
   }, []);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // Gửi sự kiện yêu cầu các trang làm mới dữ liệu
+    window.dispatchEvent(new CustomEvent('trigger-refresh'));
+    
+    // Timeout phòng trường hợp trang không phản hồi
+    setTimeout(() => setIsRefreshing(false), 10000);
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -28,13 +62,22 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">
-                S
+              <div className="metallic-border w-10 h-10">
+                <div className="metallic-border-inner">
+                  <img 
+                    src="https://github.com/trongtt-landtrack/Anh-Logo/blob/main/xql6xl4b.png?raw=true" 
+                    alt="LandTrack Logo" 
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
               </div>
-              <span className="font-bold text-xl tracking-tight text-blue-900">LANDTRACK</span>
+              <span className="font-display font-black text-2xl tracking-tight logo-text-gradient">
+                LANDTRACK
+              </span>
             </Link>
             <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
-              <Link to="/projects" className="border-blue-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium uppercase">
+              <Link to="/projects" className="border-accent text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
                 Dự án
               </Link>
             </div>
@@ -42,26 +85,41 @@ export default function Navbar() {
           
           {/* Desktop Menu */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
+            {user && (
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+                  <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-tight">
+                    Cập nhật: {lastUpdate}
+                  </span>
+                  <button 
+                    className={`p-1.5 rounded-full transition-all ${isRefreshing ? 'text-accent bg-accent/10' : 'text-gray-400 hover:text-accent hover:bg-accent/10'}`}
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    title="Cập nhật dữ liệu mới"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+                {successMsg && (
+                  <span className="text-[9px] text-green-600 font-display font-bold uppercase mt-0.5 mr-2 animate-pulse">
+                    {successMsg}
+                  </span>
+                )}
+              </div>
+            )}
             {user ? (
               <>
-                <button 
-                  className="p-2 text-gray-400 hover:text-gray-500"
-                  onClick={() => window.location.reload()}
-                  title="Tải lại trang"
-                >
-                  <RefreshCw className="h-5 w-5" />
-                </button>
                 <Link to="/profile" className="relative">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600">
+                  <div className="h-8 w-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors">
                     <User className="h-5 w-5" />
                   </div>
                 </Link>
-                <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600" title="Đăng xuất">
+                <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Đăng xuất">
                   <LogOut className="h-5 w-5" />
                 </button>
               </>
             ) : (
-              <Link to="/login" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              <Link to="/login" className="text-sm font-display font-bold text-accent hover:text-yellow-600 transition-colors">
                 Đăng nhập
               </Link>
             )}
@@ -80,23 +138,43 @@ export default function Navbar() {
       {isOpen && (
         <div className="sm:hidden fixed inset-0 z-[100] bg-white pt-16 animate-in slide-in-from-right duration-300">
           <div className="p-4 space-y-4">
-            <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-gray-900 border-b border-gray-100">
-              <LayoutDashboard className="h-5 w-5 text-blue-600" />
+            <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-tight">
+                  Cập nhật: {lastUpdate}
+                </span>
+                {successMsg && (
+                  <span className="text-[9px] text-green-600 font-display font-bold uppercase mt-0.5 animate-pulse">
+                    {successMsg}
+                  </span>
+                )}
+              </div>
+              <button 
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-display font-bold transition-all ${isRefreshing ? 'text-accent bg-accent/10' : 'text-gray-600 bg-gray-100 hover:text-accent hover:bg-accent/10'}`}
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật'}
+              </button>
+            </div>
+            <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+              <LayoutDashboard className="h-5 w-5 text-accent" />
               Dự án
             </Link>
             {user ? (
               <>
-                <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-gray-900 border-b border-gray-100">
-                  <User className="h-5 w-5 text-blue-600" />
+                <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+                  <User className="h-5 w-5 text-accent" />
                   Hồ sơ cá nhân
                 </Link>
-                <button onClick={handleLogout} className="flex items-center gap-3 w-full text-left px-4 py-4 text-lg font-medium text-red-600">
+                <button onClick={handleLogout} className="flex items-center gap-3 w-full text-left px-4 py-4 text-lg font-display font-bold text-red-600">
                   <LogOut className="h-5 w-5" />
                   Đăng xuất
                 </button>
               </>
             ) : (
-              <Link to="/login" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-medium text-blue-600">
+              <Link to="/login" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-accent">
                 Đăng nhập
               </Link>
             )}
