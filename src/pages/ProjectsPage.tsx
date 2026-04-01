@@ -183,6 +183,10 @@ export default function ProjectsPage() {
   }, [projects, searchTerm, filters]);
 
   const handleGlobalUnitSearch = async () => {
+    if (!auth.currentUser) {
+      setShowGuestWarning(true);
+      return;
+    }
     if (!unitSearchTerm && !landAreaMin && !landAreaMax && !constAreaMin && !constAreaMax) {
       setUnitSearchError('Vui lòng nhập từ khóa hoặc khoảng diện tích để tìm kiếm.');
       return;
@@ -319,7 +323,13 @@ export default function ProjectsPage() {
             TÌM DỰ ÁN
           </button>
           <button 
-            onClick={() => setSearchMode('units')}
+            onClick={() => {
+              if (!auth.currentUser) {
+                setShowGuestWarning(true);
+              } else {
+                setSearchMode('units');
+              }
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
           >
             <Home className="w-4 h-4" />

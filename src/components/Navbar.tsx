@@ -72,7 +72,7 @@ export default function Navbar() {
                   />
                 </div>
               </div>
-              <span className="font-display font-black text-2xl tracking-tight logo-text-gradient">
+              <span className="font-display font-black text-2xl tracking-normal logo-text-gradient">
                 LANDTRACK
               </span>
             </Link>

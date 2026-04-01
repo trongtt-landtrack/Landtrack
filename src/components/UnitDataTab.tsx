@@ -839,7 +839,7 @@ export default function UnitDataTab({
                             const isCode = lowerCol.includes('mã');
                             const isPrice = lowerCol === 'giá niêm yết' || lowerCol === 'giá';
                             const isArea = lowerCol === 'diện tích đất' || lowerCol === 'dt đất';
-                            const isAgentName = col === 'ĐL';
+                            const isAgentName = col === 'TÊN ĐL';
                             const isPTG = col === 'PTG';
 
                             let width = 'w-[150px]';
@@ -925,7 +925,7 @@ export default function UnitDataTab({
                         {columns.slice(0, 12).map(col => {
                           if (col.toLowerCase().includes('mã') || col.toLowerCase().includes('trạng thái') || col.toLowerCase().includes('tình trạng')) return null;
                           const val = row[col] || '-';
-                          const isAgentName = col === 'ĐL';
+                          const isAgentName = col === 'TÊN ĐL';
                           const isPTG = col === 'PTG';
 
                           return (
@@ -1124,7 +1124,7 @@ export default function UnitDataTab({
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Đại lý</p>
-                      <p className="text-lg font-black text-primary font-sans">{renderAgentValue(selectedUnit['Tên ĐL'] || selectedUnit['ĐL'])}</p>
+                      <p className="text-lg font-black text-primary font-sans">{renderAgentValue(selectedUnit['TÊN ĐL'] || selectedUnit['ĐL'])}</p>
                     </div>
                   </div>
                 </div>
@@ -1141,7 +1141,7 @@ export default function UnitDataTab({
                         key.trim() !== '' && 
                         key.length <= 60 && 
                         !HIDDEN_COLUMNS.includes(key) &&
-                        !['Mã căn', 'Mã SP', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu'].includes(key)
+                        !['Mã căn', 'Mã SP', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
                       )
                       .map(key => (
                         <div key={key} className="group">

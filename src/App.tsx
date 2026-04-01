@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getProjectConfigs } from './services/configService';
@@ -32,8 +33,16 @@ export default function App() {
         
         {/* Public Routes */}
         <Route path="/" element={<Layout />}>
-          <Route index element={<ProjectsPage />} />
-          <Route path="projects" element={<ProjectsPage />} />
+          <Route index element={
+            <ProtectedRoute>
+              <ProjectsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="projects" element={
+            <ProtectedRoute>
+              <ProjectsPage />
+            </ProtectedRoute>
+          } />
           <Route path="projects/:id" element={
             <ProtectedRoute>
               <ProjectDetailPage />
@@ -42,6 +51,11 @@ export default function App() {
           <Route path="profile" element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          } />
+          <Route path="admin" element={
+            <ProtectedRoute>
+              <AdminPage />
             </ProtectedRoute>
           } />
         </Route>

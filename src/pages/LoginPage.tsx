@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Loader2, Eye, EyeOff, X, ArrowLeft } from 'lucide-react';
+import { User, Mail, Lock, Loader2, Eye, EyeOff, X, ArrowLeft, Building2 } from 'lucide-react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -67,26 +67,47 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         const cleanPhone = phone.replace(/\s+/g, '');
+        // Normalize phone to 0... format
+        let normalizedPhone = cleanPhone;
+        if (normalizedPhone.startsWith('+84')) {
+          normalizedPhone = '0' + normalizedPhone.slice(3);
+        }
+
         // Validate phone number format
-        const phoneRegex = /^(0|\+84)[3|5|7|8|9][0-9]{8}$/;
-        if (!phoneRegex.test(cleanPhone)) {
-          setError('Số điện thoại không hợp lệ. Vui lòng nhập SĐT Việt Nam.');
+        const phoneRegex = /^0[3|5|7|8|9][0-9]{8}$/;
+        if (!phoneRegex.test(normalizedPhone)) {
+          setError('Số điện thoại không hợp lệ. Vui lòng nhập SĐT Việt Nam (ví dụ: 0912345678).');
           setLoading(false);
           return;
         }
 
-        // Check if phone is allowed
+        // Check if phone is allowed and if it's already registered
         try {
-          const q = query(collection(db, 'allowed_phones'), where('phone', '==', cleanPhone));
-          const querySnapshot = await getDocs(q);
-          if (querySnapshot.empty) {
-            setError('Số điện thoại chưa được đăng ký trước. Vui lòng liên hệ Admin.');
+          // Check allowed_phones (handle both 0... and +84... formats in DB)
+          const allowedQ = query(
+            collection(db, 'allowed_phones'), 
+            where('phone', 'in', [normalizedPhone, '+84' + normalizedPhone.slice(1)])
+          );
+          const allowedSnapshot = await getDocs(allowedQ);
+          
+          if (allowedSnapshot.empty) {
+            setError('Số điện thoại chưa được đăng ký trước trong danh sách cho phép. Vui lòng liên hệ Admin.');
+            setLoading(false);
+            return;
+          }
+
+          // Check if phone is already used in users collection
+          const userQ = query(collection(db, 'users'), where('phone', '==', normalizedPhone));
+          const userSnapshot = await getDocs(userQ);
+          
+          if (!userSnapshot.empty) {
+            setError('Số điện thoại này đã được đăng ký cho một tài khoản khác. Vui lòng đăng nhập hoặc dùng SĐT khác.');
             setLoading(false);
             return;
           }
         } catch (err) {
-          console.error('Error checking allowed_phones:', err);
-          setError('Lỗi kiểm tra số điện thoại.');
+          console.error('Error checking phone status:', err);
+          setError('Lỗi kiểm tra trạng thái số điện thoại. Vui lòng thử lại.');
           setLoading(false);
           return;
         }
@@ -94,15 +115,16 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         // Create user document in Firestore
         try {
+          const isSuperAdmin = userCredential.user.email === 'tranthetrong91@gmail.com';
           await setDoc(doc(db, 'users', userCredential.user.uid), {
             id: userCredential.user.uid,
             name: name,
             email: userCredential.user.email,
-            phone: cleanPhone,
+            phone: normalizedPhone,
             gender: gender,
             workLocation: workLocation,
             referrer: referrer,
-            role: 'user',
+            role: isSuperAdmin ? 'super_admin' : 'user',
             status: 'active',
             createdAt: new Date().toISOString()
           });
@@ -119,7 +141,7 @@ export default function LoginPage() {
             body: JSON.stringify({ 
               email: userCredential.user.email, 
               name: name, 
-              phone: cleanPhone,
+              phone: normalizedPhone,
               referrer: referrer,
               workLocation: workLocation,
               role: 'user',
@@ -237,98 +259,126 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input 
-                    type="text" 
-                    placeholder="Họ và tên" 
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                  <select 
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    required
-                  >
-                    <option value="">Giới tính</option>
-                    <option value="male">Nam</option>
-                    <option value="female">Nữ</option>
-                    <option value="other">Khác</option>
-                  </select>
-                  <input 
-                    type="tel" 
-                    placeholder="Số điện thoại" 
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                  <input 
-                    type="email" 
-                    placeholder="Email" 
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                  <div className="relative">
-                    <input 
-                      type={showPassword ? "text" : "password"} 
-                      placeholder="Mật khẩu" 
-                      className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans pr-10"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Personal Info Group */}
+                      <div className="space-y-4">
+                        <div className="relative">
+                          <User className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type="text" 
+                            placeholder="Họ và tên" 
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="relative">
+                          <select 
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all appearance-none bg-white"
+                            value={gender}
+                            onChange={(e) => setGender(e.target.value)}
+                            required
+                          >
+                            <option value="">Giới tính</option>
+                            <option value="male">Nam</option>
+                            <option value="female">Nữ</option>
+                            <option value="other">Khác</option>
+                          </select>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute left-3 top-3.5 text-gray-400 font-display font-bold text-xs">+84</div>
+                          <input 
+                            type="tel" 
+                            placeholder="Số điện thoại" 
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="relative">
+                          <Building2 className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type="text" 
+                            placeholder="Nơi làm việc" 
+                            list="provinces"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={workLocation}
+                            onChange={(e) => setWorkLocation(e.target.value)}
+                            required
+                          />
+                          <datalist id="provinces">
+                            {PROVINCES.map((province) => (
+                              <option key={province} value={province} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </div>
+
+                      {/* Account Info Group */}
+                      <div className="space-y-4">
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type="email" 
+                            placeholder="Email" 
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type={showPassword ? "text" : "password"} 
+                            placeholder="Mật khẩu" 
+                            className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type={showConfirmPassword ? "text" : "password"} 
+                            placeholder="Xác nhận mật khẩu" 
+                            className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                          <input 
+                            type="text" 
+                            placeholder="Người giới thiệu (SĐT)" 
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            value={referrer}
+                            onChange={(e) => setReferrer(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <input 
-                      type={showConfirmPassword ? "text" : "password"} 
-                      placeholder="Xác nhận mật khẩu" 
-                      className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans pr-10"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  <input 
-                    type="text" 
-                    placeholder="Nơi làm việc" 
-                    list="provinces"
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={workLocation}
-                    onChange={(e) => setWorkLocation(e.target.value)}
-                    required
-                  />
-                  <datalist id="provinces">
-                    {PROVINCES.map((province) => (
-                      <option key={province} value={province} />
-                    ))}
-                  </datalist>
-                  <input 
-                    type="text" 
-                    placeholder="Người giới thiệu" 
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-                    value={referrer}
-                    onChange={(e) => setReferrer(e.target.value)}
-                  />
-                </div>
               )}
 
               {isLogin && (

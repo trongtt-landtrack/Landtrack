@@ -10,7 +10,7 @@ export const PROVINCES = [
 ];
 
 export const STANDARD_HEADERS = [
-  'ĐL', 'Mã căn', 'Phân khu', 'Loại hình', 'TCBG', 'Số tầng', 'Hướng', 'DT Đất', 'DTXD', 
+  'TÊN ĐL', 'Mã căn', 'Phân khu', 'Loại hình', 'TCBG', 'Số tầng', 'Hướng', 'DT Đất', 'DTXD', 
   'Giá gồm VAT', 'TTS', 'Tiền đất', 'Tiền xây', 'Giá/m2', 'Vay', 'TTTĐ', 'Tình trạng', 
   'Quỹ', 'CSBH', 'Quà tặng', 'Ngày ký HĐ', 'PTG', 'Ghi chú'
 ];

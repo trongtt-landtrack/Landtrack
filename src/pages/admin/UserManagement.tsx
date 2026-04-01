@@ -9,12 +9,9 @@ import { cn } from '../../lib/utils';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
-  const [allowedPhones, setAllowedPhones] = useState<{id: string, phone: string}[]>([]);
-  const [newPhone, setNewPhone] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserRole | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'phones'>('users');
 
   const loadData = async () => {
     try {
@@ -23,13 +20,8 @@ export default function UserManagement() {
       const userSnapshot = await getDocs(usersCol);
       const userList = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       setUsers(userList);
-
-      const phonesCol = collection(db, 'allowed_phones');
-      const phoneSnapshot = await getDocs(phonesCol);
-      const phoneList = phoneSnapshot.docs.map(doc => ({ id: doc.id, phone: doc.data().phone }));
-      setAllowedPhones(phoneList);
     } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'users/allowed_phones');
+      handleFirestoreError(err, OperationType.LIST, 'users');
     } finally {
       setLoading(false);
     }
@@ -49,16 +41,10 @@ export default function UserManagement() {
     try {
       const data = await fetchSheetData<any>(sheetUrl);
       
-      // Get existing allowed phones to avoid duplicates
-      const phonesCol = collection(db, 'allowed_phones');
-      const phoneSnapshot = await getDocs(phonesCol);
-      const existingPhones = new Set(phoneSnapshot.docs.map(doc => doc.data().phone));
-
       for (const row of data) {
         // Handle different possible header names from the sheet
         const email = row.Email || row.Gmail || row.email || row.gmail;
         const role = row.Role || row['Phân quyền'] || row.role;
-        const phone = row['SĐT liên hệ'] || row.Phone || row.phone || row['Số điện thoại'];
 
         // Sync Role
         if (email && role) {
@@ -68,18 +54,6 @@ export default function UserManagement() {
             const userRef = doc(db, 'users', userDoc.id);
             await updateDoc(userRef, { role: role });
           });
-        }
-
-        // Sync Allowed Phone
-        if (phone) {
-          const cleanPhone = phone.toString().replace(/\s+/g, '');
-          const phoneRegex = /^(0|\+84)[3|5|7|8|9][0-9]{8}$/;
-          
-          if (phoneRegex.test(cleanPhone) && !existingPhones.has(cleanPhone)) {
-            const phoneRef = doc(collection(db, 'allowed_phones'));
-            await setDoc(phoneRef, { phone: cleanPhone });
-            existingPhones.add(cleanPhone); // Add to set to prevent duplicate inserts in the same run
-          }
         }
       }
       await loadData();
@@ -141,41 +115,6 @@ export default function UserManagement() {
     }
   };
 
-  const handleAddPhone = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPhone = newPhone.replace(/\s+/g, '');
-    if (!cleanPhone) return;
-    
-    const phoneRegex = /^(0|\+84)[3|5|7|8|9][0-9]{8}$/;
-    if (!phoneRegex.test(cleanPhone)) {
-      alert('Số điện thoại không hợp lệ. Vui lòng nhập SĐT Việt Nam.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const phoneRef = doc(collection(db, 'allowed_phones'));
-      await setDoc(phoneRef, { phone: cleanPhone });
-      setNewPhone('');
-      await loadData();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'allowed_phones');
-      setLoading(false);
-    }
-  };
-
-  const handleDeletePhone = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa số điện thoại này?')) return;
-    setLoading(true);
-    try {
-      await deleteDoc(doc(db, 'allowed_phones', id));
-      await loadData();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `allowed_phones/${id}`);
-      setLoading(false);
-    }
-  };
-
   const currentUser = users.find(u => u.id === auth.currentUser?.uid);
   const isSuperAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
 
@@ -206,27 +145,16 @@ export default function UserManagement() {
       </div>
 
       <div className="flex gap-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={cn("pb-2 px-1 text-sm font-bold font-display border-b-2 transition-colors", activeTab === 'users' ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700")}
-        >
+        <div className="pb-2 px-1 text-sm font-bold font-display border-b-2 border-primary text-primary">
           TÀI KHOẢN NGƯỜI DÙNG
-        </button>
-        {isSuperAdmin && (
-          <button
-            onClick={() => setActiveTab('phones')}
-            className={cn("pb-2 px-1 text-sm font-bold font-display border-b-2 transition-colors", activeTab === 'phones' ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700")}
-          >
-            SĐT ĐƯỢC PHÉP ĐĂNG KÝ
-          </button>
-        )}
+        </div>
       </div>
       
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      ) : activeTab === 'users' ? (
+      ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -275,52 +203,6 @@ export default function UserManagement() {
               ))}
             </tbody>
           </table>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <form onSubmit={handleAddPhone} className="flex gap-4">
-            <input
-              type="tel"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              placeholder="Nhập số điện thoại mới..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent font-sans"
-              required
-            />
-            <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-accent transition-colors font-display">
-              <Plus className="w-4 h-4" /> Thêm SĐT
-            </button>
-          </form>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Số điện thoại</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display w-24">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {allowedPhones.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 font-sans">{item.phone}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <button onClick={() => handleDeletePhone(item.id)} className="text-red-600 hover:text-red-800">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {allowedPhones.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="px-6 py-8 text-center text-gray-500 font-sans">
-                      Chưa có số điện thoại nào trong danh sách.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
