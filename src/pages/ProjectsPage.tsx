@@ -13,8 +13,11 @@ import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { fetchConfiguredSheetData, clearCache } from '../services/googleSheets';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { RequirePermission } from '../contexts/PermissionsContext';
 
 export default function ProjectsPage() {
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(() => {
     // Khởi tạo từ cache nếu có để tránh màn hình trắng
@@ -56,7 +59,7 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!auth.currentUser) {
+    if (userRole === 'guest') {
       setShowGuestWarning(true);
     } else {
       navigate(`/projects/${projectId}`);
@@ -68,7 +71,7 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!auth.currentUser) {
+    if (userRole === 'guest') {
       setShowGuestWarning(true);
     } else {
       navigate(`/projects/${projectId}?tab=units&unitCode=${unitCode}`);
@@ -94,9 +97,9 @@ export default function ProjectsPage() {
       }
       // Load favorites
       let favoriteProjectIds = new Set<string>();
-      if (auth.currentUser) {
+      if (user) {
         try {
-          const q = query(collection(db, 'favorites'), where('uid', '==', auth.currentUser.uid));
+          const q = query(collection(db, 'favorites'), where('uid', '==', user.uid));
           const querySnapshot = await getDocs(q);
           querySnapshot.forEach((doc) => {
             if (!doc.data().unitCode) {
@@ -184,7 +187,7 @@ export default function ProjectsPage() {
   }, [projects, searchTerm, filters]);
 
   const handleGlobalUnitSearch = async () => {
-    if (!auth.currentUser) {
+    if (userRole === 'guest') {
       setShowGuestWarning(true);
       return;
     }
@@ -354,7 +357,7 @@ export default function ProjectsPage() {
           </button>
           <button 
             onClick={() => {
-              if (!auth.currentUser) {
+              if (userRole === 'guest') {
                 setShowGuestWarning(true);
               } else {
                 setSearchMode('units');

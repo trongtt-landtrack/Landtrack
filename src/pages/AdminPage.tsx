@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../firebase';
-import { Shield, Plus, Trash2, Search, Phone, Loader2, ArrowLeft, Edit2, Check, X } from 'lucide-react';
+import { db, auth } from '../firebase';
+import { Shield, Plus, Trash2, Search, Phone, Loader2, ArrowLeft, Edit2, Check, X, Users, Database, FileText, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc } from 'firebase/firestore';
+import SheetDataViewer from '../components/SheetDataViewer';
+import UserManagement from './admin/UserManagement';
+import AllDataManagement from './admin/AllDataManagement';
+import { useAuth } from '../contexts/AuthContext';
+import Tabs from '../components/Tabs';
 
 interface AllowedPhone {
   id: string;
@@ -18,6 +23,8 @@ interface AdminPageProps {
 }
 
 export default function AdminPage({ standalone = true }: AdminPageProps) {
+  const { userRole } = useAuth();
+  const [activeTab, setActiveTab] = useState('allowed-phones');
   const [phones, setPhones] = useState<AllowedPhone[]>([]);
   const [newPhone, setNewPhone] = useState('');
   const [newPosition, setNewPosition] = useState('');
@@ -162,12 +169,16 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
     }
   };
 
-  const filteredPhones = phones.filter(p => 
-    p.phone.includes(searchTerm)
-  );
+  const ADMIN_TABS = [
+    { id: 'user-management', label: 'Quản lý người dùng', icon: <Users className="w-4 h-4" /> },
+    { id: 'system-data', label: 'Dữ liệu hệ thống', icon: <Database className="w-4 h-4" /> },
+    { id: 'allowed-phones', label: 'Quản lý SĐT cho phép', icon: <Phone className="w-4 h-4" /> },
+    { id: 'permissions-data', label: 'Dữ liệu phân quyền', icon: <Shield className="w-4 h-4" /> },
+    { id: 'log-sync', label: 'Log Sync', icon: <Activity className="w-4 h-4" /> },
+  ];
 
-  const content = (
-    <div className={`${standalone ? 'max-w-4xl mx-auto px-4 py-8' : 'space-y-6'}`}>
+  const renderAllowedPhones = () => (
+    <div className={`${standalone ? 'max-w-4xl mx-auto py-8' : 'space-y-6'}`}>
       {/* Add New Phone Card */}
       <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 ${standalone ? 'mb-8' : ''}`}>
         <div className="flex items-center justify-between mb-4">
@@ -347,13 +358,30 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
     </div>
   );
 
-  if (!standalone) return content;
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'user-management':
+        return <UserManagement />;
+      case 'system-data':
+        return <AllDataManagement />;
+      case 'allowed-phones':
+        return renderAllowedPhones();
+      case 'permissions-data':
+        return <SheetDataViewer sheetId="1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M" gid="769193965" />;
+      case 'log-sync':
+        return <SheetDataViewer sheetId="1iwk49apyTY2SkkQEL6qRvFzuND9J5-0qFk4cIXzxg8M" gid="1549970295" />;
+      default:
+        return null;
+    }
+  };
+
+  if (!standalone) return renderAllowedPhones();
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button 
             onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -362,12 +390,21 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
           </button>
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-accent" />
-            <h1 className="font-display font-bold text-lg text-gray-900">Quản lý SĐT cho phép</h1>
+            <h1 className="font-display font-bold text-lg text-gray-900">Quản trị hệ thống</h1>
           </div>
           <div className="w-9" />
         </div>
       </div>
-      {content}
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <Tabs tabs={ADMIN_TABS} activeTab={activeTab} onChange={setActiveTab} />
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          {renderContent()}
+        </div>
+      </div>
     </div>
   );
 }

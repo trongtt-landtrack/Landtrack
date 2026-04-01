@@ -94,7 +94,7 @@ export default function LoginPage() {
           return;
         }
 
-        // Check if referrer phone is allowed and if user phone is already registered
+        // Check if referrer phone is allowed
         try {
           // Check allowed_phones for referrer
           const allowedQ = query(
@@ -105,16 +105,6 @@ export default function LoginPage() {
           
           if (allowedSnapshot.empty) {
             setError('Số điện thoại người giới thiệu không hợp lệ hoặc chưa được cấp phép. Vui lòng kiểm tra lại.');
-            setLoading(false);
-            return;
-          }
-
-          // Check if phone is already used in users collection
-          const userQ = query(collection(db, 'users'), where('phone', '==', normalizedPhone));
-          const userSnapshot = await getDocs(userQ);
-          
-          if (!userSnapshot.empty) {
-            setError('Số điện thoại này đã được đăng ký cho một tài khoản khác. Vui lòng đăng nhập hoặc dùng SĐT khác.');
             setLoading(false);
             return;
           }
@@ -175,7 +165,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row w-full max-w-6xl relative max-h-[85vh]">
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row w-full max-w-5xl relative max-h-[90vh]">
         
         {/* Close Button */}
         <button 
@@ -187,10 +177,10 @@ export default function LoginPage() {
         </button>
 
         {/* Left Side - Branding */}
-        <div className="lg:w-5/12 bg-gradient-to-br from-primary to-primary/80 p-12 text-white flex flex-col justify-center items-center text-center relative overflow-hidden">
+        <div className="lg:w-5/12 bg-gradient-to-br from-primary to-primary/80 p-8 lg:p-12 text-white flex flex-col justify-center items-center text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/pattern/800/800')] opacity-10 mix-blend-overlay"></div>
           <div className="relative z-10">
-            <div className="w-32 h-32 metallic-border mx-auto mb-6">
+            <div className="w-28 h-28 metallic-border mx-auto mb-6">
               <div className="metallic-border-inner">
                 <img 
                   src="https://github.com/trongtt-landtrack/Anh-Logo/blob/main/xql6xl4b.png?raw=true" 
@@ -210,16 +200,16 @@ export default function LoginPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="lg:w-7/12 p-8 lg:p-12 relative overflow-y-auto">
+        <div className="lg:w-7/12 p-6 lg:p-10 relative overflow-y-auto">
           {!isForgotPassword ? (
-            <div className="flex border-b border-gray-200 mb-8">
+            <div className="flex border-b border-gray-200 mb-6">
               <button
                 onClick={() => {
                   setIsLogin(true);
                   setError('');
                   setSuccessMessage('');
                 }}
-                className={`flex-1 pb-4 text-center font-display font-bold text-xl transition-colors border-b-2 ${
+                className={`flex-1 pb-3 text-center font-display font-bold text-lg transition-colors border-b-2 ${
                   isLogin ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
@@ -231,7 +221,7 @@ export default function LoginPage() {
                   setError('');
                   setSuccessMessage('');
                 }}
-                className={`flex-1 pb-4 text-center font-display font-bold text-xl transition-colors border-b-2 ${
+                className={`flex-1 pb-3 text-center font-display font-bold text-lg transition-colors border-b-2 ${
                   !isLogin ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
@@ -239,7 +229,7 @@ export default function LoginPage() {
               </button>
             </div>
           ) : (
-            <h2 className="text-2xl font-display font-bold text-gray-900 mb-8">
+            <h2 className="text-xl font-display font-bold text-gray-900 mb-6">
               Khôi phục mật khẩu
             </h2>
           )}
@@ -297,7 +287,7 @@ export default function LoginPage() {
                           <input 
                             type="text" 
                             placeholder="Họ và tên" 
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -305,7 +295,7 @@ export default function LoginPage() {
                         </div>
                         <div className="relative">
                           <select 
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all appearance-none bg-white"
+                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all appearance-none bg-white"
                             value={gender}
                             onChange={(e) => setGender(e.target.value)}
                             required
@@ -321,7 +311,7 @@ export default function LoginPage() {
                           <input 
                             type="tel" 
                             placeholder="Số điện thoại" 
-                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-12 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                             required
@@ -333,7 +323,7 @@ export default function LoginPage() {
                             type="text" 
                             placeholder="Nơi làm việc" 
                             list="provinces"
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={workLocation}
                             onChange={(e) => setWorkLocation(e.target.value)}
                             required
@@ -353,7 +343,7 @@ export default function LoginPage() {
                           <input 
                             type="email" 
                             placeholder="Email" 
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -364,7 +354,7 @@ export default function LoginPage() {
                           <input 
                             type={showPassword ? "text" : "password"} 
                             placeholder="Mật khẩu" 
-                            className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
@@ -382,7 +372,7 @@ export default function LoginPage() {
                           <input 
                             type={showConfirmPassword ? "text" : "password"} 
                             placeholder="Xác nhận mật khẩu" 
-                            className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
@@ -400,7 +390,7 @@ export default function LoginPage() {
                           <input 
                             type="text" 
                             placeholder="Người giới thiệu (SĐT)" 
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                             value={referrer}
                             onChange={(e) => setReferrer(e.target.value)}
                           />
@@ -417,7 +407,7 @@ export default function LoginPage() {
                     <input 
                       type="email" 
                       placeholder="Email" 
-                      className="w-full pl-10 pr-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -428,7 +418,7 @@ export default function LoginPage() {
                     <input 
                       type={showPassword ? "text" : "password"} 
                       placeholder="Mật khẩu" 
-                      className="w-full pl-10 pr-10 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent font-sans"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required

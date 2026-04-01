@@ -8,9 +8,6 @@ import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { getProjectConfigs } from '../services/configService';
 import { Project, UserRole } from '../types';
 import ProjectCard from '../components/ProjectCard';
-import UserManagement from './admin/UserManagement';
-import AllDataManagement from './admin/AllDataManagement';
-import AdminPage from './AdminPage';
 import { useTheme, THEMES, ThemeType } from '../context/ThemeContext';
 
 const isSuperAdmin = (role: UserRole) => {
@@ -43,11 +40,6 @@ export default function ProfilePage() {
   const PROFILE_TABS = [
     { id: 'info', label: 'Thông tin cá nhân' },
     { id: 'appearance', label: 'Cài đặt giao diện' },
-    ...(userData && canManageUsers(userData.role) ? [{ id: 'user-management', label: 'Quản lý người dùng' }] : []),
-    ...(userData && isSuperAdmin(userData.role) ? [
-      { id: 'system-data', label: 'Dữ liệu hệ thống' },
-      { id: 'allowed-phones', label: 'Quản lý SĐT cho phép' }
-    ] : []),
     { id: 'interested', label: 'Dự án đang quan tâm' },
     { id: 'history', label: 'Lịch sử tương tác' },
   ];
@@ -475,24 +467,6 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'user-management' && (
-          <div className="p-6">
-            <UserManagement />
-          </div>
-        )}
-
-        {activeTab === 'system-data' && (
-          <div className="p-6">
-            <AllDataManagement />
-          </div>
-        )}
-
-        {activeTab === 'allowed-phones' && (
-          <div className="p-6">
-            <AdminPage standalone={false} />
           </div>
         )}
         

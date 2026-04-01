@@ -67,20 +67,27 @@ export interface Subdivision {
 
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
+  ADMIN = 'admin',
   PROJECT_DIRECTOR = 'project_director',
   USER = 'user',
-  PENDING = 'pending',
+  GUEST = 'guest',
+  BANNED = 'banned',
 }
 
 export interface User {
   id: string;
   name: string;
   role: UserRole;
+  status?: string;
   phone: string;
   email: string;
   avatarUrl: string;
   departmentId?: string;
   teamId?: string;
+  referrer?: string;
+  workLocation?: string;
+  gender?: string;
+  createdAt?: string;
 }
 
 export interface UnitSearchResult {

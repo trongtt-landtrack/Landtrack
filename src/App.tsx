@@ -9,6 +9,8 @@ import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getProjectConfigs } from './services/configService';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { PermissionsProvider } from './contexts/PermissionsContext';
 
 function Layout() {
   return (
@@ -28,41 +30,45 @@ export default function App() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Public Routes */}
-          <Route path="/" element={<Layout />}>
-            <Route index element={
-              <ProtectedRoute>
-                <ProjectsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="projects" element={
-              <ProtectedRoute>
-                <ProjectsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="projects/:id" element={
-              <ProtectedRoute>
-                <ProjectDetailPage />
-              </ProtectedRoute>
-            } />
-            <Route path="profile" element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            } />
-            <Route path="admin" element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            } />
-          </Route>
-        </Routes>
-      </Router>
-    </ThemeProvider>
+    <AuthProvider>
+      <PermissionsProvider>
+        <ThemeProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              
+              {/* Public Routes */}
+              <Route path="/" element={<Layout />}>
+                <Route index element={
+                  <ProtectedRoute actionKey="project:view">
+                    <ProjectsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="projects" element={
+                  <ProtectedRoute actionKey="project:view">
+                    <ProjectsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="projects/:id" element={
+                  <ProtectedRoute actionKey="project_detail:view">
+                    <ProjectDetailPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="profile" element={
+                  <ProtectedRoute actionKey="nav:profile">
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin" element={
+                  <ProtectedRoute actionKey="nav:admin">
+                    <AdminPage />
+                  </ProtectedRoute>
+                } />
+              </Route>
+            </Routes>
+          </Router>
+        </ThemeProvider>
+      </PermissionsProvider>
+    </AuthProvider>
   );
 }

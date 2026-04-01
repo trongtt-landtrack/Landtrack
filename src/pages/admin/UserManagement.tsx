@@ -12,6 +12,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserRole | null>(null);
+  const [editStatus, setEditStatus] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -102,20 +103,25 @@ export default function UserManagement() {
     }
   };
 
-  const handleUpdateRole = async (userId: string) => {
-    if (!editRole) return;
+  const handleUpdateRoleAndStatus = async (userId: string) => {
+    if (!editRole && !editStatus) return;
     if (userId === auth.currentUser?.uid) {
-      alert('Bạn không thể tự thay đổi quyền của chính mình.');
+      alert('Bạn không thể tự thay đổi quyền hoặc trạng thái của chính mình.');
       setEditingUserId(null);
       return;
     }
     try {
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { role: editRole });
-      setUsers(users.map(u => u.id === userId ? { ...u, role: editRole } : u));
+      const updates: any = {};
+      if (editRole) updates.role = editRole;
+      if (editStatus) updates.status = editStatus;
+
+      await updateDoc(userRef, updates);
+      setUsers(users.map(u => u.id === userId ? { ...u, ...updates } : u));
       setEditingUserId(null);
       setEditRole(null);
-      alert('Cập nhật vai trò thành công!');
+      setEditStatus(null);
+      alert('Cập nhật thành công!');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
     }
@@ -187,6 +193,7 @@ export default function UserManagement() {
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Tên</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Email</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Vai trò</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Trạng thái</th>
                 {isSuperAdmin && <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Hành động</th>}
               </tr>
             </thead>
@@ -212,19 +219,38 @@ export default function UserManagement() {
                       </span>
                     )}
                   </td>
+                  <td className="px-6 py-4 text-sm">
+                    {editingUserId === user.id && isSuperAdmin ? (
+                      <select 
+                        value={editStatus || user.status || 'active'}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        className="p-1 border rounded font-sans"
+                      >
+                        <option value="active">Hoạt động</option>
+                        <option value="banned">Bị khóa (Banned)</option>
+                      </select>
+                    ) : (
+                      <span className={cn(
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-display",
+                        user.status === 'banned' ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
+                      )}>
+                        {user.status === 'banned' ? 'Bị khóa' : 'Hoạt động'}
+                      </span>
+                    )}
+                  </td>
                   {isSuperAdmin && (
                     <td className="px-6 py-4 text-sm">
                       {editingUserId === user.id ? (
                         <div className="flex gap-3">
                           <button 
-                            onClick={() => handleUpdateRole(user.id)} 
+                            onClick={() => handleUpdateRoleAndStatus(user.id)} 
                             className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded transition-colors"
                             title="Lưu"
                           >
                             <Save className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => { setEditingUserId(null); setEditRole(null); }} 
+                            onClick={() => { setEditingUserId(null); setEditRole(null); setEditStatus(null); }} 
                             className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-50 rounded transition-colors"
                             title="Hủy"
                           >
@@ -234,9 +260,9 @@ export default function UserManagement() {
                       ) : (
                         <div className="flex gap-3">
                           <button 
-                            onClick={() => { setEditingUserId(user.id); setEditRole(user.role); }} 
+                            onClick={() => { setEditingUserId(user.id); setEditRole(user.role); setEditStatus(user.status || 'active'); }} 
                             className="text-primary hover:text-accent p-1 hover:bg-primary/5 rounded transition-colors"
-                            title="Sửa vai trò"
+                            title="Sửa"
                           >
                             <UserCog className="w-4 h-4" />
                           </button>

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { RequirePermission } from '../contexts/PermissionsContext';
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
+  const { user, userRole } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>(() => {
     return localStorage.getItem('last_sync_time') || '--:--:--';
@@ -15,10 +17,6 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
     const handleUpdateSuccess = () => {
       const now = new Date();
       const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -36,7 +34,6 @@ export default function Navbar() {
 
     window.addEventListener('sync-success', handleUpdateSuccess);
     return () => {
-      unsubscribe();
       window.removeEventListener('sync-success', handleUpdateSuccess);
     };
   }, []);
@@ -77,15 +74,22 @@ export default function Navbar() {
               </span>
             </Link>
             <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
-              <Link to="/projects" className="border-accent text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
-                Dự án
-              </Link>
+              <RequirePermission actionKey="nav:projects">
+                <Link to="/projects" className="border-accent text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
+                  Dự án
+                </Link>
+              </RequirePermission>
+              <RequirePermission actionKey="nav:admin">
+                <Link to="/admin" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
+                  Quản trị
+                </Link>
+              </RequirePermission>
             </div>
           </div>
           
           {/* Desktop Menu */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
-            {user && (
+            {userRole !== 'guest' && (
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
                   <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-tight">
@@ -107,13 +111,15 @@ export default function Navbar() {
                 )}
               </div>
             )}
-            {user ? (
+            {userRole !== 'guest' ? (
               <>
-                <Link to="/profile" className="relative">
-                  <div className="h-8 w-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors">
-                    <User className="h-5 w-5" />
-                  </div>
-                </Link>
+                <RequirePermission actionKey="nav:profile">
+                  <Link to="/profile" className="relative">
+                    <div className="h-8 w-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors">
+                      <User className="h-5 w-5" />
+                    </div>
+                  </Link>
+                </RequirePermission>
                 <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Đăng xuất">
                   <LogOut className="h-5 w-5" />
                 </button>
@@ -138,36 +144,48 @@ export default function Navbar() {
       {isOpen && (
         <div className="sm:hidden fixed inset-0 z-[100] bg-white pt-16 animate-in slide-in-from-right duration-300">
           <div className="p-4 space-y-4">
-            <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-tight">
-                  Cập nhật: {lastUpdate}
-                </span>
-                {successMsg && (
-                  <span className="text-[9px] text-green-600 font-display font-bold uppercase mt-0.5 animate-pulse">
-                    {successMsg}
+            {userRole !== 'guest' && (
+              <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-display font-bold text-gray-400 uppercase tracking-tight">
+                    Cập nhật: {lastUpdate}
                   </span>
-                )}
+                  {successMsg && (
+                    <span className="text-[9px] text-green-600 font-display font-bold uppercase mt-0.5 animate-pulse">
+                      {successMsg}
+                    </span>
+                  )}
+                </div>
+                <button 
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-display font-bold transition-all ${isRefreshing ? 'text-accent bg-accent/10' : 'text-gray-600 bg-gray-100 hover:text-accent hover:bg-accent/10'}`}
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật'}
+                </button>
               </div>
-              <button 
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-display font-bold transition-all ${isRefreshing ? 'text-accent bg-accent/10' : 'text-gray-600 bg-gray-100 hover:text-accent hover:bg-accent/10'}`}
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật'}
-              </button>
-            </div>
-            <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
-              <LayoutDashboard className="h-5 w-5 text-accent" />
-              Dự án
-            </Link>
-            {user ? (
+            )}
+            <RequirePermission actionKey="nav:projects">
+              <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+                <LayoutDashboard className="h-5 w-5 text-accent" />
+                Dự án
+              </Link>
+            </RequirePermission>
+            <RequirePermission actionKey="nav:admin">
+              <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+                <LayoutDashboard className="h-5 w-5 text-accent" />
+                Quản trị
+              </Link>
+            </RequirePermission>
+            {userRole !== 'guest' ? (
               <>
-                <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
-                  <User className="h-5 w-5 text-accent" />
-                  Hồ sơ cá nhân
-                </Link>
+                <RequirePermission actionKey="nav:profile">
+                  <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+                    <User className="h-5 w-5 text-accent" />
+                    Hồ sơ cá nhân
+                  </Link>
+                </RequirePermission>
                 <button onClick={handleLogout} className="flex items-center gap-3 w-full text-left px-4 py-4 text-lg font-display font-bold text-red-600">
                   <LogOut className="h-5 w-5" />
                   Đăng xuất
