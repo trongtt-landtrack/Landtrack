@@ -177,6 +177,10 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
     { id: 'log-sync', label: 'Log Sync', icon: <Activity className="w-4 h-4" /> },
   ];
 
+  const filteredPhones = phones.filter(p => 
+    p.phone.includes(searchTerm)
+  );
+
   const renderAllowedPhones = () => (
     <div className={`${standalone ? 'max-w-4xl mx-auto py-8' : 'space-y-6'}`}>
       {/* Add New Phone Card */}

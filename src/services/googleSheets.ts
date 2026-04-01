@@ -199,7 +199,11 @@ export async function fetchConfiguredSheetData<T>(
       if (!response.ok) {
         throw new Error(`Lỗi mạng khi gọi GAS API: ${response.status}`);
       }
-      const json = await response.json();
+      const text = await response.text();
+      if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.trim().toLowerCase().startsWith('<html')) {
+        throw new Error('GAS API returned HTML instead of JSON. Please check the GAS deployment and URL.');
+      }
+      const json = JSON.parse(text);
       if (json.success) {
         console.log(`GAS API xử lý thành công sheet: ${json.sheetName}, ${json.totalRows} dòng.`);
         return json.data as T[];
