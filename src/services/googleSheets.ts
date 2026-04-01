@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 
 const cache = new Map<string, { data: any, timestamp: number }>();
-const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MEMORY_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 const PERSISTENT_CACHE_PREFIX = 'sheet_cache_v1_';
 
 export function clearCache() {
@@ -191,7 +191,7 @@ export async function fetchConfiguredSheetData<T>(
   }
   
   // 3. Check GAS API
-  const gasApiUrl = import.meta.env.VITE_DATA_CLEAN_GAS_URL;
+  const gasApiUrl = import.meta.env.VITE_DATA_CLEAN_GAS_URL || 'https://script.google.com/macros/s/AKfycbzpFlOTImhFD5EUv0CnmPNREnvyG4koJbeEI9JrJpM2P4DX2h0-QaZQz8EnkkUQ0BfYSA/exec';
   if (gasApiUrl) {
     console.log('Đang sử dụng GAS API để làm sạch dữ liệu từ:', url);
     try {

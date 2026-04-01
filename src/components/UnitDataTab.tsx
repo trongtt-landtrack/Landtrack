@@ -967,7 +967,7 @@ export default function UnitDataTab({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="grid grid-cols-2 gap-4 p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
                         {columns.slice(0, 12).map(col => {
                           if (col.toLowerCase().includes('mã') || col.toLowerCase().includes('trạng thái') || col.toLowerCase().includes('tình trạng')) return null;
                           const val = row[col] || '-';
@@ -975,8 +975,8 @@ export default function UnitDataTab({
                           const isPTG = col === 'PTG';
 
                           return (
-                            <div key={col} className="space-y-1">
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest truncate block font-display">{col}</span>
+                            <div key={col} className="space-y-1.5">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate block font-display">{col}</span>
                               {isAgentName ? (
                                 <a 
                                   href={row['SpreadsheetID'] || '#'} 
