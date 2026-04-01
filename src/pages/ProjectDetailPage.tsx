@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { Share2, LayoutGrid, Home, File, Loader2, BarChart3, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
+import { Share2, LayoutGrid, Home, File, Loader2, BarChart3, ExternalLink, MapPin, RefreshCw, Copy } from 'lucide-react';
 import Tabs from '../components/Tabs';
 import UnitDataTab from '../components/UnitDataTab';
 import DocsTab from '../components/DocsTab';
@@ -216,9 +216,39 @@ export default function ProjectDetailPage() {
                 )}
               </div>
             </div>
-            <button className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-accent/10 hover:bg-accent/20 text-primary/80 rounded-xl text-sm font-display font-bold transition-colors">
-              Chia sẻ <Share2 className="w-4 h-4" />
-            </button>
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <button 
+                onClick={() => {
+                  const text = `🏢 DỰ ÁN: ${project.name}
+✨ Slogan: ${project.slogan}
+📍 Vị trí: ${project.location}`;
+                  navigator.clipboard.writeText(text).then(() => {
+                    alert('Đã sao chép thông tin dự án!');
+                  });
+                }}
+                className="flex items-center justify-center gap-2 flex-1 sm:flex-none px-6 py-2.5 bg-primary/5 hover:bg-primary/10 text-primary/80 rounded-xl text-sm font-display font-bold transition-colors"
+              >
+                Copy Zalo <Copy className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => {
+                  const shareData = {
+                    title: project.name,
+                    text: `${project.name} - ${project.slogan}`,
+                    url: window.location.href,
+                  };
+                  if (navigator.share) {
+                    navigator.share(shareData).catch(console.error);
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('Đã sao chép liên kết dự án!');
+                  }
+                }}
+                className="flex items-center justify-center gap-2 flex-1 sm:flex-none px-6 py-2.5 bg-accent/10 hover:bg-accent/20 text-primary/80 rounded-xl text-sm font-display font-bold transition-colors"
+              >
+                Chia sẻ <Share2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 

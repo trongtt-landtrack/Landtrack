@@ -8,10 +8,11 @@ import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getProjectConfigs } from './services/configService';
+import { ThemeProvider } from './context/ThemeContext';
 
 function Layout() {
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-[var(--bg-app)] font-sans">
       <Navbar />
       <main>
         <Outlet />
@@ -27,39 +28,41 @@ export default function App() {
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        
-        {/* Public Routes */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={
-            <ProtectedRoute>
-              <ProjectsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="projects" element={
-            <ProtectedRoute>
-              <ProjectsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="projects/:id" element={
-            <ProtectedRoute>
-              <ProjectDetailPage />
-            </ProtectedRoute>
-          } />
-          <Route path="profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
-          <Route path="admin" element={
-            <ProtectedRoute>
-              <AdminPage />
-            </ProtectedRoute>
-          } />
-        </Route>
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          
+          {/* Public Routes */}
+          <Route path="/" element={<Layout />}>
+            <Route index element={
+              <ProtectedRoute>
+                <ProjectsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="projects" element={
+              <ProtectedRoute>
+                <ProjectsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="projects/:id" element={
+              <ProtectedRoute>
+                <ProjectDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin" element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            } />
+          </Route>
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }

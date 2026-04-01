@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User } from 'lucide-react';
+import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User, Copy, Share2 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { STANDARD_HEADERS, MASTER_SHEET_URL } from '../constants';
@@ -88,6 +88,25 @@ export default function UnitDataTab({
     const str = String(val || '').trim();
     if (!str || str.toLowerCase() === 'n/a' || str === '0') return '';
     return str;
+  };
+
+  const copyToZalo = (unit: any) => {
+    const unitCodeCol = Object.keys(unit).find(k => k.toLowerCase().includes('mã căn') || k.toLowerCase().includes('mã sp'));
+    const areaCol = Object.keys(unit).find(k => k.toLowerCase().includes('diện tích') || k.toLowerCase().includes('dt'));
+    const priceCol = Object.keys(unit).find(k => k.toLowerCase().includes('giá') && !k.toLowerCase().includes('đơn giá'));
+    const directionCol = Object.keys(unit).find(k => k.toLowerCase().includes('hướng'));
+    const statusCol = Object.keys(unit).find(k => k.toLowerCase().includes('tình trạng') || k.toLowerCase().includes('trạng thái'));
+
+    const text = `🏠 DỰ ÁN: ${projectName || 'Thông tin dự án'}
+📍 Mã căn: ${unit[unitCodeCol || ''] || 'N/A'}
+📐 Diện tích: ${unit[areaCol || ''] || 'N/A'} m2
+🧭 Hướng: ${unit[directionCol || ''] || 'N/A'}
+💰 Giá: ${unit[priceCol || ''] || 'N/A'}
+📊 Tình trạng: ${unit[statusCol || ''] || 'N/A'}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Đã sao chép thông tin gửi Zalo!');
+    });
   };
 
   const handleUnitAction = async (unit: any, actionType: string, e?: React.MouseEvent) => {
@@ -376,11 +395,11 @@ export default function UnitDataTab({
           const key = sortConfig.key.toLowerCase();
           const col = k.toLowerCase();
           if (key === 'dt') {
-            // Ưu tiên khớp chính xác "diện tích đất"
-            if (col === 'diện tích đất' || col === 'dt đất') return true;
+            // Ưu tiên khớp chính xác "DT Đất" hoặc "diện tích đất"
+            if (col === 'dt đất' || col === 'diện tích đất') return true;
             return col.includes('dt') || col.includes('diện tích');
           }
-          if (key === 'giá') return col.includes('giá') && !col.includes('đơn giá');
+          if (key === 'giá') return col === 'giá gồm vat' || (col.includes('giá') && !col.includes('đơn giá'));
           if (key === 'đơn giá') return col.includes('đơn giá') || col.includes('/m2');
           return col.includes(key);
         });
@@ -792,8 +811,9 @@ export default function UnitDataTab({
                 <div className="min-w-max">
                   {/* Table Header */}
                   <div className="flex bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
-                    <div className="flex-none w-[60px] px-4 py-5 text-[10px] font-black text-primary/60 uppercase tracking-widest text-center font-display">
-                      <Heart className="w-3.5 h-3.5 mx-auto" />
+                    <div className="flex-none w-[80px] px-4 py-5 text-[10px] font-black text-primary/60 uppercase tracking-widest text-center font-display flex items-center justify-center gap-1">
+                      <Heart className="w-3.5 h-3.5" />
+                      <Share2 className="w-3.5 h-3.5" />
                     </div>
                     {columns.map((col) => {
                       const lowerCol = col.toLowerCase();
@@ -834,16 +854,27 @@ export default function UnitDataTab({
                           }`}
                           onClick={() => setSelectedUnit(row)}
                         >
-                          {/* Heart Button in First Column */}
-                          <div className="flex-none w-[60px] px-4 py-4 flex justify-center">
+                          {/* Action Buttons in First Column */}
+                          <div className="flex-none w-[80px] px-4 py-4 flex justify-center gap-1">
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleUnitAction(row, 'interest', e);
                               }}
                               className={`p-2 rounded-full transition-all ${isSuccess ? 'text-red-500 bg-red-50' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                              title="Quan tâm"
                             >
                               <Heart className={`w-4 h-4 ${isSuccess ? 'fill-current' : ''}`} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToZalo(row);
+                              }}
+                              className="p-2 rounded-full text-gray-300 hover:text-accent hover:bg-accent/5 transition-all"
+                              title="Copy gửi Zalo"
+                            >
+                              <Copy className="w-4 h-4" />
                             </button>
                           </div>
 
@@ -852,7 +883,7 @@ export default function UnitDataTab({
                             const lowerCol = col.toLowerCase();
                             const isStatus = lowerCol.includes('tình trạng') || lowerCol.includes('trạng thái');
                             const isCode = lowerCol.includes('mã');
-                            const isPrice = lowerCol === 'giá niêm yết' || lowerCol === 'giá';
+                            const isPrice = lowerCol === 'giá gồm vat' || lowerCol === 'giá niêm yết' || lowerCol === 'giá';
                             const isArea = lowerCol === 'diện tích đất' || lowerCol === 'dt đất';
                             const isAgentName = col === 'TÊN ĐL';
                             const isPTG = col === 'PTG';
@@ -977,9 +1008,21 @@ export default function UnitDataTab({
                       </div>
 
                       <div className="flex justify-between items-center pt-2">
-                        <button className="flex items-center gap-2 text-[10px] font-black text-accent uppercase tracking-widest font-display">
-                          Xem chi tiết <ArrowRightLeft className="w-3 h-3" />
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToZalo(row);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-display"
+                          >
+                            <Copy className="w-3 h-3" />
+                            Zalo
+                          </button>
+                          <button className="flex items-center gap-2 text-[10px] font-black text-accent uppercase tracking-widest font-display">
+                            Chi tiết <ArrowRightLeft className="w-3 h-3" />
+                          </button>
+                        </div>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1088,9 +1131,9 @@ export default function UnitDataTab({
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">Giá niêm yết</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">Giá gồm VAT</p>
                     <p className="text-4xl font-black text-accent tracking-tight font-display">
-                      {selectedUnit['Giá niêm yết'] || selectedUnit['Giá'] || selectedUnit['Tổng giá'] || '-'}
+                      {selectedUnit['Giá gồm VAT'] || selectedUnit['Giá niêm yết'] || selectedUnit['Giá'] || selectedUnit['Tổng giá'] || '-'}
                     </p>
                   </div>
                 </div>
@@ -1156,7 +1199,7 @@ export default function UnitDataTab({
                         key.trim() !== '' && 
                         key.length <= 60 && 
                         !HIDDEN_COLUMNS.includes(key) &&
-                        !['Mã căn', 'Mã SP', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
+                        !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
                       )
                       .map(key => (
                         <div key={key} className="group">
@@ -1177,7 +1220,15 @@ export default function UnitDataTab({
                   <p className="text-xs font-medium italic">Dữ liệu được cập nhật thời gian thực từ hệ thống</p>
                 </div>
                 
-                <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                  <button
+                    onClick={() => copyToZalo(selectedUnit)}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-3 px-8 py-4 bg-accent/10 text-accent border border-accent/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                  >
+                    <Copy className="w-5 h-5" />
+                    Copy gửi Zalo
+                  </button>
+
                   {(() => {
                     const unitCode = String(selectedUnit['Mã căn'] || selectedUnit['Mã SP'] || '').trim();
                     const isSuccess = likedUnits.has(unitCode);

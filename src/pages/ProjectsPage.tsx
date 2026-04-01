@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Loader2, Filter, LayoutGrid, Home, Building2, MapPin, ChevronRight, X, Scale, ArrowRightLeft, Trash2, Database, ChevronUp, ChevronDown } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import Sidebar from '../components/Sidebar';
+import ContactCard from '../components/ContactCard';
 import GuestWarningModal from '../components/GuestWarningModal';
 import { getProjectConfigs, clearConfigCache } from '../services/configService';
 import { Project, UnitSearchResult } from '../types';
@@ -207,8 +208,8 @@ export default function ProjectsPage() {
       );
 
       // Area keywords - Standardized to match HEADER_MATRIX in googleSheets.ts
-      const landKeywords = ['Diện tích đất'];
-      const constKeywords = ['Diện tích XD'];
+      const landKeywords = ['DT Đất'];
+      const constKeywords = ['DTXD'];
 
       // Helper to parse area values
       const getAreaValue = (unit: any, keywords: string[]) => {
@@ -223,7 +224,7 @@ export default function ProjectsPage() {
       // Filter units from the master data
       const filteredResults: UnitSearchResult[] = data.filter(unit => {
         // Standardized identifier: "Mã căn" is the standard key from HEADER_MATRIX
-        const unitCode = (unit['Mã căn'] || unit['Mã SP']) ? (unit['Mã căn'] || unit['Mã SP']).toString().trim() : '';
+        const unitCode = (unit['Mã căn'] || unit['Mã SP'] || unit['Mã căn hộ']) ? (unit['Mã căn'] || unit['Mã SP'] || unit['Mã căn hộ']).toString().trim() : '';
         
         if (!unitCode) return false;
 
@@ -241,15 +242,44 @@ export default function ProjectsPage() {
 
         return matchesTerm && matchesLandMin && matchesLandMax && matchesConstMin && matchesConstMax;
       }).map(unit => {
-        // Try to find the project name if it's in the master data (e.g. in a "Dự án" or "Tên dự án" column)
-        const projectName = unit['Dự án'] || unit['Tên dự án'] || 'Dự án khác';
+        // Try to find the project name if it's in the master data
+        // Use normalized keys from HEADER_MATRIX: 'ProjectName'
+        const rawProjectName = unit['ProjectName'] || unit['Dự án'] || unit['Tên dự án'] || 'Dự án khác';
+        const projectName = rawProjectName.toString().trim();
+        
         // Try to find the projectId by matching the name with our projects list
-        const project = projects.find(p => p.name.toLowerCase() === projectName.toLowerCase());
+        const normalizedSearchName = projectName.toLowerCase();
+        const project = projects.find(p => {
+          const pName = p.name.toLowerCase().trim();
+          return pName === normalizedSearchName || 
+                 normalizedSearchName.includes(pName) || 
+                 pName.includes(normalizedSearchName);
+        });
+
+        // Fix potential swapped data for 'Loại hình' and 'TCBG' if detected
+        let unitData = { ...unit };
+        const loaiHinh = (unitData['Loại hình'] || '').toString();
+        const tcbg = (unitData['TCBG'] || '').toString();
+        
+        // If 'Loại hình' looks like a handover standard and 'TCBG' looks like a product type, swap them
+        const isLoaiHinhHandover = loaiHinh.toLowerCase().includes('thô') || 
+                                  loaiHinh.toLowerCase().includes('bàn giao') || 
+                                  loaiHinh.toLowerCase().includes('hoàn thiện');
+        const isTCBGProductType = tcbg.toLowerCase().includes('shop') || 
+                                 tcbg.toLowerCase().includes('căn hộ') || 
+                                 tcbg.toLowerCase().includes('villa') || 
+                                 tcbg.toLowerCase().includes('liền kề') ||
+                                 tcbg.toLowerCase().includes('biệt thự');
+        
+        if (isLoaiHinhHandover && isTCBGProductType) {
+          unitData['Loại hình'] = tcbg;
+          unitData['TCBG'] = loaiHinh;
+        }
         
         return {
           projectId: project?.id || 'unknown',
-          projectName: projectName,
-          unitData: unit
+          projectName: project?.name || projectName,
+          unitData: unitData
         };
       });
 
@@ -308,12 +338,12 @@ export default function ProjectsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-display font-bold text-center text-primary mb-8 uppercase tracking-wider">
+      <h1 className="text-[28px] font-display font-bold text-center text-primary mb-8 uppercase tracking-wider">
         DANH MỤC DỰ ÁN & QUỸ CĂN
       </h1>
 
       {/* Smart Search and Filters Block */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-10">
+      <div className="bg-white rounded-2xl shadow-lg border border-[#f9f4f4] p-6 mb-10">
         <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
           <button 
             onClick={() => setSearchMode('projects')}
@@ -461,9 +491,9 @@ export default function ProjectsPage() {
                     <ArrowRightLeft className="w-3 h-3 rotate-90" /> Sắp xếp:
                   </span>
                   {[
-                    { label: 'Diện tích đất', key: 'Diện tích đất' },
-                    { label: 'Giá niêm yết', key: 'Giá niêm yết' },
-                    { label: 'Đơn giá/m2', key: 'Đơn giá/m2' }
+                    { label: 'Diện tích đất', key: 'DT Đất' },
+                    { label: 'Giá gồm VAT', key: 'Giá gồm VAT' },
+                    { label: 'Đơn giá/m2', key: 'Giá/m2' }
                   ].map((sort) => (
                     <button
                       key={sort.key}
@@ -601,56 +631,104 @@ export default function ProjectsPage() {
                     <h2 className="text-lg font-display font-bold text-primary">Kết quả tìm kiếm ({sortedUnitResults.length})</h2>
                     <button onClick={() => setUnitSearchResults([])} className="text-sm font-display font-bold text-accent hover:underline">Xóa kết quả</button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-4">
                     {sortedUnitResults.map((result, idx) => {
                       const isComparing = comparisonList.some(item => item.projectId === result.projectId && item.unitData['Mã căn'] === result.unitData['Mã căn']);
+                      
+                      const getVal = (key1: string, key2: string = '') => {
+                        const val = (result.unitData[key1] || result.unitData[key2] || '').toString().trim();
+                        return (val.toUpperCase() === 'N/A' || val === '-' || val === '') ? '' : val;
+                      };
+
+                      const status = getVal('Tình trạng', 'Trạng thái');
+                      const price = getVal('Giá gồm VAT', 'Giá');
+                      const area = getVal('DT Đất', 'Diện tích');
+                      const type = getVal('Loại hình');
+                      const orientation = getVal('Hướng');
+                      const agent = getVal('TÊN ĐL', 'ĐL');
+                      const unitCode = getVal('Mã căn');
+
                       return (
                         <div 
                           key={`${result.projectId}-${idx}`}
-                          className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all group flex flex-col justify-between gap-4 relative"
+                          className="bg-white border border-primary/10 rounded-2xl p-4 sm:p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative overflow-hidden flex flex-col lg:flex-row lg:items-center gap-4"
                         >
-                          <div className="flex-grow">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-display font-bold rounded uppercase tracking-wider">
-                                  {result.projectName}
-                                </span>
-                                <span className="text-sm font-display font-bold text-primary">
-                                  {result.unitData['Mã căn'] || 'N/A'}
-                                </span>
+                          {/* Left: Basic Info */}
+                          <div className="flex-shrink-0 lg:w-48 flex flex-col justify-center">
+                            <span className="text-[9px] font-black text-accent uppercase tracking-[0.2em] font-display block mb-1 truncate" title={result.projectName}>
+                              {result.projectName}
+                            </span>
+                            <h3 className="text-xl font-black text-primary font-display tracking-tight mb-2">
+                              {unitCode}
+                            </h3>
+                            {status && (
+                              <div className={`inline-flex self-start px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-display ${
+                                status.toLowerCase().includes('trống') || status.toLowerCase().includes('mở') 
+                                  ? 'bg-green-50 text-green-600 border-green-100' 
+                                  : status.toLowerCase().includes('cọc') || status.toLowerCase().includes('đã bán')
+                                  ? 'bg-red-50 text-red-600 border-red-100'
+                                  : 'bg-gray-50 text-gray-500 border-gray-100'
+                              }`}>
+                                {status}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button 
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    toggleComparison(result);
-                                  }}
-                                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-display font-bold ${isComparing ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                  title={isComparing ? "Bỏ so sánh" : "Thêm vào so sánh"}
-                                >
-                                  <ArrowRightLeft className="w-3 h-3" />
-                                  {isComparing ? 'ĐANG SO SÁNH' : 'SO SÁNH'}
-                                </button>
-                                <button 
-                                  onClick={(e) => handleUnitClick(result.projectId, result.unitData['Mã căn'] || '', e)}
-                                  className="flex items-center text-accent font-display font-bold text-xs group-hover:translate-x-1 transition-transform"
-                                >
-                                  CHI TIẾT <ChevronRight className="w-4 h-4" />
-                                </button>
-                              </div>
+                            )}
+                          </div>
+
+                          {/* Middle: Key Metrics */}
+                          <div className="flex-grow grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 py-3 lg:py-0 border-y lg:border-y-0 lg:border-x border-gray-100 px-0 lg:px-6">
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Giá gồm VAT</span>
+                              <span className="text-sm font-black text-accent font-display block truncate" title={price}>{price}</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                              {STANDARD_HEADERS
-                                .filter(header => result.unitData[header] !== undefined)
-                                .slice(0, 10)
-                                .map(header => (
-                                  <div key={header} className="text-[12px] flex flex-col">
-                                    <span className="text-gray-400 font-display font-medium">{header}:</span> 
-                                    <span className="text-gray-700 font-sans font-semibold truncate">{result.unitData[header] as string}</span>
-                                  </div>
-                                ))}
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Diện tích</span>
+                              <span className="text-sm font-black text-primary font-display block truncate" title={area ? `${area} m²` : ''}>{area ? `${area} m²` : ''}</span>
                             </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Loại hình</span>
+                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={type}>{type}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Hướng</span>
+                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={orientation}>{orientation}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Đại lý</span>
+                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={agent}>{agent}</span>
+                            </div>
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex flex-row lg:flex-col items-center gap-2 lg:w-36 flex-shrink-0">
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleComparison(result);
+                              }}
+                              className={`flex-1 lg:w-full py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest font-display shadow-sm ${
+                                isComparing 
+                                  ? 'bg-orange-600 text-white shadow-orange-600/20' 
+                                  : 'bg-primary/5 text-primary hover:bg-primary/10'
+                              }`}
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                              {isComparing ? 'ĐANG SO SÁNH' : 'SO SÁNH'}
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                if (result.projectId === 'unknown') {
+                                  alert('Không tìm thấy thông tin chi tiết cho dự án này.');
+                                  return;
+                                }
+                                handleUnitClick(result.projectId, result.unitData['Mã căn'] || '', e);
+                              }}
+                              className={`flex-1 lg:w-full py-2 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest font-display shadow-md shadow-primary/10 hover:bg-accent transition-all duration-300 flex items-center justify-center gap-1.5 ${
+                                result.projectId === 'unknown' ? 'opacity-20 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              CHI TIẾT <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -731,97 +809,130 @@ export default function ProjectsPage() {
       {/* Comparison Modal */}
       {showComparisonModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowComparisonModal(false)} />
-          <div className="relative bg-white w-full max-w-6xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <div className="bg-orange-100 p-2 rounded-xl">
-                  <ArrowRightLeft className="w-6 h-6 text-orange-600" />
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setShowComparisonModal(false)} />
+          <div className="relative bg-white w-full max-w-6xl max-h-[90vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 border border-primary/10">
+            {/* Header - CSS 9: height 160px */}
+            <div className="h-[160px] p-8 border-b border-primary/5 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center shadow-lg">
+                  <ArrowRightLeft className="w-8 h-8 text-accent" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-display font-bold text-gray-900">Bảng so sánh căn hộ</h2>
-                  <p className="text-sm font-sans text-gray-500">Đối chiếu thông tin chi tiết giữa các căn đã chọn</p>
+                  <h2 className="text-2xl font-black text-primary uppercase tracking-widest font-display">Bảng so sánh căn hộ</h2>
+                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mt-1 font-display">Đối chiếu thông tin chi tiết giữa các căn đã chọn</p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowComparisonModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="w-12 h-12 flex items-center justify-center hover:bg-primary/5 rounded-2xl transition-all duration-300 group"
               >
-                <X className="w-6 h-6 text-gray-500" />
+                <X className="w-6 h-6 text-primary/40 group-hover:text-primary transition-colors" />
               </button>
             </div>
 
-            <div className="flex-grow overflow-auto p-6">
-              <div className="min-w-full inline-block align-middle">
-                <div className="overflow-hidden border border-gray-200 rounded-2xl">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-display font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
-                          Hạng mục
-                        </th>
-                        {comparisonList.map((item, idx) => (
-                          <th key={idx} className="px-6 py-4 text-center text-xs font-display font-bold text-primary uppercase tracking-wider min-w-[200px]">
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-accent text-[10px] font-display font-bold">{item.projectName}</span>
-                              <span className="text-sm font-display font-bold">{item.unitData['Mã căn'] || `Căn ${idx + 1}`}</span>
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Project Name Row */}
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-display font-bold text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-200">
-                          Dự án
-                        </td>
-                        {comparisonList.map((item, idx) => (
-                          <td key={idx} className="px-6 py-4 text-center text-sm font-sans text-gray-600 font-medium">
-                            {item.projectName}
-                          </td>
-                        ))}
-                      </tr>
-                      {/* Dynamic Rows */}
-                      {allComparisonKeys.map((key) => (
-                        <tr key={key} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-display font-bold text-gray-500 sticky left-0 bg-white z-10 border-r border-gray-200">
-                            {key}
-                          </td>
-                          {comparisonList.map((item, idx) => {
-                            const val = item.unitData[key];
-                            const isDifferent = comparisonList.some(other => other.unitData[key] !== val);
-                            return (
-                              <td key={idx} className={`px-6 py-4 text-center text-sm font-sans ${isDifferent ? 'text-orange-600 font-semibold bg-orange-50/30' : 'text-gray-600'}`}>
-                                {val?.toString() || '-'}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* Content - CSS 2: height 500px */}
+            <div className="h-[500px] overflow-auto p-8 bg-gray-50/50">
+              <div className="flex flex-col gap-px min-w-max bg-gray-100 rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                {/* Header Row */}
+                <div className="flex bg-white">
+                  {/* CSS 12: width 180px, height 100px */}
+                  <div className="w-[200px] h-[120px] flex-shrink-0 flex items-center justify-center p-6 bg-gray-50/80 border-r border-gray-100">
+                    <span className="text-[10px] font-black text-primary/40 uppercase tracking-widest font-display">Thông tin đối chiếu</span>
+                  </div>
+                  {comparisonList.map((item, idx) => (
+                    <div key={idx} className="w-[220px] h-[120px] flex-shrink-0 flex flex-col items-center justify-center p-6 border-r border-gray-100 last:border-r-0">
+                      <div className="w-full text-center space-y-2">
+                        <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[8px] font-black uppercase tracking-widest font-display inline-block">
+                          {item.projectName}
+                        </span>
+                        <h4 className="text-lg font-black text-primary font-display truncate w-full" title={item.unitData['Mã căn'] as string}>
+                          {item.unitData['Mã căn'] || `Căn ${idx + 1}`}
+                        </h4>
+                        <div className="flex items-center justify-center gap-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider font-display">
+                          <Building2 className="w-3 h-3" />
+                          {item.unitData['Loại hình'] || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+
+                {/* Data Rows */}
+                {allComparisonKeys.map((key) => (
+                  <div key={key} className="flex bg-white group hover:bg-accent/5 transition-colors duration-200">
+                    {/* CSS 10, 13, 14: width 180px, height 100px */}
+                    <div className="w-[200px] min-h-[80px] flex-shrink-0 flex items-center px-8 bg-gray-50/50 border-r border-gray-100">
+                      <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest font-display leading-relaxed">{key}</span>
+                    </div>
+                    {comparisonList.map((item, idx) => {
+                      const val = item.unitData[key];
+                      const isDifferent = comparisonList.length > 1 && comparisonList.some(other => other.unitData[key] !== val);
+                      const isPrice = key.toLowerCase().includes('giá');
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`w-[220px] min-h-[80px] flex-shrink-0 flex items-center justify-center p-8 text-center border-r border-gray-100 last:border-r-0 ${
+                            isDifferent ? 'bg-accent/5' : ''
+                          }`}
+                        >
+                          <span className={`text-sm font-sans leading-relaxed ${
+                            isDifferent ? 'text-accent font-black' : 
+                            isPrice ? 'text-primary font-black' : 
+                            'text-slate-600 font-bold'
+                          }`}>
+                            {val?.toString() || '-'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-              <button 
-                onClick={() => setComparisonList([])}
-                className="px-6 py-2 text-sm font-display font-bold text-gray-500 hover:text-red-500 transition-colors"
-              >
-                XÓA TẤT CẢ
-              </button>
-              <button 
-                onClick={() => setShowComparisonModal(false)}
-                className="px-8 py-2 bg-gray-900 text-white rounded-xl text-sm font-display font-bold hover:bg-black transition-all"
-              >
-                ĐÓNG
-              </button>
+            {/* Footer - CSS 3: height 150px */}
+            <div className="h-[150px] p-8 border-t border-primary/5 bg-white flex items-center justify-between gap-6">
+              <div className="flex flex-col">
+                {/* CSS 7: width 200px */}
+                <p className="w-[200px] text-[9px] font-black text-primary/30 uppercase tracking-widest font-display italic leading-relaxed">
+                  * Thông tin so sánh mang tính chất tham khảo tại thời điểm hiện tại.
+                </p>
+              </div>
+              {/* CSS 5: width 800px, height 50px */}
+              <div className="w-[800px] h-[50px] flex items-center gap-4">
+                {/* CSS 4: height 45px */}
+                <button 
+                  onClick={() => setComparisonList([])}
+                  className="flex-1 h-[45px] px-6 bg-primary/5 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all duration-300 font-display"
+                >
+                  XÓA TẤT CẢ
+                </button>
+                {/* CSS 6: width 200px, height 45px */}
+                <button 
+                  onClick={() => {
+                    const text = comparisonList.map(item => `${item.projectName} - ${item.unitData['Mã căn']}`).join('\n');
+                    navigator.clipboard.writeText(text);
+                    alert('Đã sao chép thông tin so sánh!');
+                  }}
+                  className="w-[200px] h-[45px] px-6 bg-accent text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all duration-300 shadow-lg shadow-accent/20 font-display"
+                >
+                  CHIA SẺ
+                </button>
+                {/* CSS 8: height 45px */}
+                <button 
+                  onClick={() => setShowComparisonModal(false)}
+                  className="flex-1 h-[45px] px-8 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all duration-300 shadow-lg shadow-primary/20 font-display"
+                >
+                  ĐÓNG
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      <ContactCard />
 
       <GuestWarningModal 
         isOpen={showGuestWarning} 

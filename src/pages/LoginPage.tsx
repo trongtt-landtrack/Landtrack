@@ -161,7 +161,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col lg:flex-row w-full max-w-5xl relative">
         
         {/* Close Button */}

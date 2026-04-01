@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { User, UserRole } from '../../types';
-import { Loader2, UserCog, Save, X, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { Loader2, UserCog, Save, X, RefreshCw, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../lib/firestoreError';
 import { fetchSheetData } from '../../services/googleSheets';
 import { cn } from '../../lib/utils';
@@ -104,14 +104,39 @@ export default function UserManagement() {
 
   const handleUpdateRole = async (userId: string) => {
     if (!editRole) return;
+    if (userId === auth.currentUser?.uid) {
+      alert('Bạn không thể tự thay đổi quyền của chính mình.');
+      setEditingUserId(null);
+      return;
+    }
     try {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, { role: editRole });
       setUsers(users.map(u => u.id === userId ? { ...u, role: editRole } : u));
       setEditingUserId(null);
       setEditRole(null);
+      alert('Cập nhật vai trò thành công!');
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (userId === auth.currentUser?.uid) {
+      alert('Bạn không thể xóa tài khoản của chính mình.');
+      return;
+    }
+    if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản của "${userName}"? Hành động này không thể hoàn tác.`)) return;
+
+    try {
+      setLoading(true);
+      await deleteDoc(doc(db, 'users', userId));
+      setUsers(users.filter(u => u.id !== userId));
+      alert('Đã xóa người dùng thành công!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -190,12 +215,41 @@ export default function UserManagement() {
                   {isSuperAdmin && (
                     <td className="px-6 py-4 text-sm">
                       {editingUserId === user.id ? (
-                        <div className="flex gap-2">
-                          <button onClick={() => handleUpdateRole(user.id)} className="text-green-600 hover:text-green-800"><Save className="w-4 h-4" /></button>
-                          <button onClick={() => { setEditingUserId(null); setEditRole(null); }} className="text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                        <div className="flex gap-3">
+                          <button 
+                            onClick={() => handleUpdateRole(user.id)} 
+                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded transition-colors"
+                            title="Lưu"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => { setEditingUserId(null); setEditRole(null); }} 
+                            className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-50 rounded transition-colors"
+                            title="Hủy"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       ) : (
-                        <button onClick={() => { setEditingUserId(user.id); setEditRole(user.role); }} className="text-primary hover:text-accent"><UserCog className="w-4 h-4" /></button>
+                        <div className="flex gap-3">
+                          <button 
+                            onClick={() => { setEditingUserId(user.id); setEditRole(user.role); }} 
+                            className="text-primary hover:text-accent p-1 hover:bg-primary/5 rounded transition-colors"
+                            title="Sửa vai trò"
+                          >
+                            <UserCog className="w-4 h-4" />
+                          </button>
+                          {user.id !== auth.currentUser?.uid && (
+                            <button 
+                              onClick={() => handleDeleteUser(user.id, user.name || '')} 
+                              className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
+                              title="Xóa người dùng"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   )}

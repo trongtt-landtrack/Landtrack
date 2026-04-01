@@ -57,7 +57,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-[var(--bg-app)] border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
@@ -72,7 +72,7 @@ export default function Navbar() {
                   />
                 </div>
               </div>
-              <span className="font-display font-black text-2xl tracking-normal logo-text-gradient">
+              <span className="font-display font-black text-[23px] tracking-normal logo-text-gradient">
                 LANDTRACK
               </span>
             </Link>

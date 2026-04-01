@@ -83,45 +83,44 @@ export default function AllDataManagement() {
                     <h3 className="text-lg font-bold text-primary font-display">{config.name}</h3>
                     <p className="text-sm text-gray-500 italic font-sans">{config.slogan}</p>
                   </div>
-                  <a 
-                    href={config.sheetUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors font-display"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    XEM GOOGLE SHEET
-                  </a>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
                   <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 font-display">Dòng tiêu đề</p>
-                    <p className="text-sm font-medium text-gray-900 font-sans">{config.headerRow}</p>
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1 font-display">Cấu hình dòng</p>
+                    <p className="text-xs font-bold text-primary font-sans">Tiêu đề: {config.headerRow} | Bắt đầu: {config.dataStartRow}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 font-display">Dòng bắt đầu</p>
-                    <p className="text-sm font-medium text-gray-900 font-sans">{config.dataStartRow}</p>
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1 font-display">Trạng thái</p>
+                    <p className="text-xs font-bold text-primary font-sans">{config.status || 'Đang hoạt động'}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 font-display">Dòng kết thúc</p>
-                    <p className="text-sm font-medium text-gray-900 font-sans">{config.dataEndRow || 'Tự động'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 font-display">Trạng thái</p>
-                    <p className="text-sm font-medium text-gray-900 font-sans">{config.status || 'N/A'}</p>
+                  <div className="sm:col-span-2 flex justify-end items-center gap-3">
+                    <a 
+                      href={config.sheetUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-primary/5 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 transition-all font-display"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Link Dữ liệu
+                    </a>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2 font-display">Ma trận tiêu đề (Mapping)</p>
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest font-display">Ma trận tiêu đề quan trọng</p>
+                    <span className="text-[9px] text-gray-300 font-bold italic">* Chỉ hiển thị các trường cốt lõi</span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(config.headerMatrix).map(([standard, actual]) => (
-                      <div key={standard} className="flex items-center bg-gray-50 rounded-md border border-gray-100 overflow-hidden">
-                        <span className="px-2 py-1 text-[10px] font-bold text-gray-500 border-r border-gray-100 font-display">{standard}</span>
-                        <span className="px-2 py-1 text-[10px] font-bold text-primary font-sans">{actual}</span>
-                      </div>
-                    ))}
+                    {Object.entries(config.headerMatrix)
+                      .filter(([standard]) => ['Mã căn', 'Giá gồm VAT', 'DT Đất', 'TÊN ĐL', 'Tình trạng'].includes(standard))
+                      .map(([standard, actual]) => (
+                        <div key={standard} className="flex items-center bg-gray-50 rounded-lg border border-gray-100 overflow-hidden shadow-sm">
+                          <span className="px-2.5 py-1.5 text-[9px] font-black text-gray-400 border-r border-gray-100 bg-white font-display">{standard}</span>
+                          <span className="px-2.5 py-1.5 text-[9px] font-black text-accent font-sans">{actual}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Shield, Plus, Trash2, Search, Phone, Loader2, ArrowLeft } from 'lucide-react';
+import { Shield, Plus, Trash2, Search, Phone, Loader2, ArrowLeft, Edit2, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { updateDoc } from 'firebase/firestore';
 
 interface AllowedPhone {
   id: string;
   phone: string;
+  position?: string;
   createdAt: string;
 }
 
@@ -18,10 +20,15 @@ interface AdminPageProps {
 export default function AdminPage({ standalone = true }: AdminPageProps) {
   const [phones, setPhones] = useState<AllowedPhone[]>([]);
   const [newPhone, setNewPhone] = useState('');
+  const [newPosition, setNewPosition] = useState('');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPhone, setEditPhone] = useState('');
+  const [editPosition, setEditPosition] = useState('');
 
   useEffect(() => {
     fetchPhones();
@@ -43,13 +50,38 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
     }
   };
 
+  const handleUpdatePhone = async (id: string) => {
+    if (!editPhone.trim()) return;
+    
+    try {
+      let normalized = editPhone.replace(/\D/g, '');
+      if (normalized.startsWith('84')) {
+        normalized = '0' + normalized.substring(2);
+      } else if (!normalized.startsWith('0')) {
+        normalized = '0' + normalized;
+      }
+
+      const phoneRef = doc(db, 'allowed_phones', id);
+      await updateDoc(phoneRef, {
+        phone: normalized,
+        position: editPosition.trim() || 'Thành viên'
+      });
+      
+      setEditingId(null);
+      fetchPhones();
+      alert('Cập nhật thành công!');
+    } catch (error) {
+      console.error('Error updating phone:', error);
+      alert('Có lỗi xảy ra khi cập nhật.');
+    }
+  };
+
   const handleAddPhone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPhone.trim()) return;
 
     setAdding(true);
     try {
-      // Normalize phone: remove non-digits, ensure starts with 0
       let normalized = newPhone.replace(/\D/g, '');
       if (normalized.startsWith('84')) {
         normalized = '0' + normalized.substring(2);
@@ -57,7 +89,6 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
         normalized = '0' + normalized;
       }
 
-      // Check if already exists in database (not just local state)
       const q = query(collection(db, 'allowed_phones'), where('phone', '==', normalized));
       const existingSnapshot = await getDocs(q);
       
@@ -69,9 +100,11 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
 
       await addDoc(collection(db, 'allowed_phones'), {
         phone: normalized,
+        position: newPosition.trim() || 'Thành viên',
         createdAt: new Date().toISOString()
       });
       setNewPhone('');
+      setNewPosition('');
       fetchPhones();
     } catch (error) {
       console.error('Error adding phone:', error);
@@ -149,26 +182,38 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
             Dọn dẹp trùng lặp
           </button>
         </div>
-        <form onSubmit={handleAddPhone} className="flex gap-3">
-          <div className="relative flex-1">
-            <Phone className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
-            <input 
-              type="tel"
-              placeholder="Nhập số điện thoại (VD: 0938...)"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              required
-            />
+        <form onSubmit={handleAddPhone} className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Phone className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+              <input 
+                type="tel"
+                placeholder="Số điện thoại (VD: 0938...)"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                required
+              />
+            </div>
+            <div className="relative flex-1">
+              <Shield className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+              <input 
+                type="text"
+                placeholder="Chức danh (VD: Quản lý, Giám đốc...)"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                value={newPosition}
+                onChange={(e) => setNewPosition(e.target.value)}
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={adding}
+              className="px-6 py-3 bg-accent text-white rounded-xl font-display font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 min-w-[120px]"
+            >
+              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Thêm
+            </button>
           </div>
-          <button 
-            type="submit"
-            disabled={adding}
-            className="px-6 py-3 bg-accent text-white rounded-xl font-display font-bold text-sm hover:bg-accent-dark transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-accent/20"
-          >
-            {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Thêm
-          </button>
         </form>
         <p className="mt-3 text-xs text-gray-500 italic">
           * SĐT sẽ được tự động chuẩn hóa về định dạng bắt đầu bằng số 0.
@@ -208,23 +253,87 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
                   exit={{ opacity: 0, scale: 0.95 }}
                   className={`p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group ${!standalone ? 'py-3' : ''} ${idx % 2 === 0 ? 'bg-white' : 'bg-accent/5'}`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
                     <div className={`rounded-full bg-accent/10 flex items-center justify-center text-accent ${standalone ? 'w-10 h-10' : 'w-8 h-8'}`}>
                       <Phone className={`${standalone ? 'w-5 h-5' : 'w-4 h-4'}`} />
                     </div>
-                    <div>
-                      <p className="font-display font-bold text-gray-900">{p.phone}</p>
-                      <p className="text-xs text-gray-500">
-                        Thêm ngày: {new Date(p.createdAt).toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
+                    
+                    {editingId === p.id ? (
+                      <div className="flex flex-col sm:flex-row gap-2 flex-1 mr-4">
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          className="flex-1 px-3 py-1.5 border border-accent/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          placeholder="Số điện thoại"
+                          autoFocus
+                        />
+                        <input
+                          type="text"
+                          value={editPosition}
+                          onChange={(e) => setEditPosition(e.target.value)}
+                          className="flex-1 px-3 py-1.5 border border-accent/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          placeholder="Chức danh"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="font-display font-bold text-gray-900">{p.phone}</p>
+                        <div className="flex items-center gap-2">
+                          {p.position && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/5 px-1.5 py-0.5 rounded">
+                              {p.position}
+                            </span>
+                          )}
+                          <p className="text-[10px] text-gray-400">
+                            {new Date(p.createdAt).toLocaleDateString('vi-VN')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button 
-                    onClick={() => handleDeletePhone(p.id)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {editingId === p.id ? (
+                      <>
+                        <button 
+                          onClick={() => handleUpdatePhone(p.id)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Lưu"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setEditingId(null)}
+                          className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Hủy"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => {
+                            setEditingId(p.id);
+                            setEditPhone(p.phone);
+                            setEditPosition(p.position || '');
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeletePhone(p.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Xóa"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -255,7 +364,7 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
             <Shield className="w-5 h-5 text-accent" />
             <h1 className="font-display font-bold text-lg text-gray-900">Quản lý SĐT cho phép</h1>
           </div>
-          <div className="w-9" /> {/* Spacer */}
+          <div className="w-9" />
         </div>
       </div>
       {content}
