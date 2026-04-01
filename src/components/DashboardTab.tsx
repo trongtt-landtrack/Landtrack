@@ -115,6 +115,15 @@ export default function DashboardTab({
     return str.toLowerCase() === 'n/a' ? '' : str;
   };
 
+  const getUnitCount = (agentName: string) => {
+    if (!agentName) return 0;
+    const normAgentName = removeAccents(agentName.toLowerCase().trim());
+    return filteredData.filter(unit => {
+      const unitAgent = removeAccents(String(unit['TÊN ĐL'] || unit['Đại lý'] || '').toLowerCase().trim());
+      return unitAgent === normAgentName;
+    }).length;
+  };
+
   const renderAgentTable = (agentList: Agent[], startIndex: number) => (
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
@@ -124,47 +133,56 @@ export default function DashboardTab({
             <th className="px-4 py-3 text-[10px] font-black text-primary/40 uppercase tracking-widest font-display text-center">ĐL</th>
             <th className="px-4 py-3 text-[10px] font-black text-primary/40 uppercase tracking-widest font-display">Mã ĐL</th>
             <th className="px-4 py-3 text-[10px] font-black text-primary/40 uppercase tracking-widest font-display">TÊN ĐL</th>
+            <th className="px-4 py-3 text-[10px] font-black text-primary/40 uppercase tracking-widest font-display text-center">Quỹ căn</th>
             <th className="px-4 py-3 text-[10px] font-black text-primary/40 uppercase tracking-widest font-display text-right">Link</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-primary/5">
-          {agentList.map((agent, idx) => (
-            <motion.tr 
-              key={agent.id + (startIndex + idx)}
-              whileHover={{ backgroundColor: 'rgba(217, 155, 40, 0.05)' }}
-              className="group transition-colors"
-            >
-              <td className="px-4 py-3">
-                <span className="text-[10px] font-black text-primary/40 font-display">{startIndex + idx + 1}</span>
-              </td>
-              <td className="px-4 py-3 text-center">
-                <span className="inline-block px-2 py-1 bg-accent/10 text-accent rounded-lg text-[9px] font-black uppercase tracking-widest font-display">
-                  {renderAgentValue(agent.dlText)}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className="text-xs font-black text-primary font-display">{renderAgentValue(agent.id)}</span>
-              </td>
-              <td className="px-4 py-3 cursor-pointer" onClick={() => onNavigate('units', { agent: renderAgentValue(agent.name) })}>
-                <span className="text-xs font-black text-primary group-hover:text-accent transition-colors font-display">{renderAgentValue(agent.name)}</span>
-              </td>
-              <td className="px-4 py-3 text-right">
-                {agent.link && agent.link.toLowerCase() !== 'n/a' ? (
-                  <a 
-                    href={agent.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300 shadow-sm font-display"
-                  >
-                    CHI TIẾT
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ) : (
-                  <span className="text-[9px] font-black text-primary/20 uppercase tracking-widest font-display"></span>
-                )}
-              </td>
-            </motion.tr>
-          ))}
+          {agentList.map((agent, idx) => {
+            const unitCount = getUnitCount(agent.name);
+            return (
+              <motion.tr 
+                key={agent.id + (startIndex + idx)}
+                whileHover={{ backgroundColor: 'rgba(217, 155, 40, 0.05)' }}
+                className={`group transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-accent/5'}`}
+              >
+                <td className="px-4 py-3">
+                  <span className="text-[10px] font-black text-primary/40 font-display">{startIndex + idx + 1}</span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <span className="inline-block px-2 py-1 bg-accent/10 text-accent rounded-lg text-[9px] font-black uppercase tracking-widest font-display">
+                    {renderAgentValue(agent.dlText)}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs font-black text-primary font-display">{renderAgentValue(agent.id)}</span>
+                </td>
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onNavigate('units', { 'TÊN ĐL': renderAgentValue(agent.name) })}>
+                  <span className="text-xs font-black text-primary group-hover:text-accent transition-colors font-display">{renderAgentValue(agent.name)}</span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <span className="text-xs font-black text-primary font-display">
+                    {unitCount === 0 ? '0 (*)' : unitCount}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {agent.link && agent.link.toLowerCase() !== 'n/a' ? (
+                    <a 
+                      href={agent.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300 shadow-sm font-display"
+                    >
+                      CHI TIẾT
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-[9px] font-black text-primary/20 uppercase tracking-widest font-display"></span>
+                  )}
+                </td>
+              </motion.tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -210,17 +228,28 @@ export default function DashboardTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-primary/5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {agents.length > 0 ? (
             <>
-              {renderAgentTable(leftAgents, 0)}
-              {renderAgentTable(rightAgents, half)}
+              <div className="bg-white rounded-[2rem] border border-primary/10 shadow-sm overflow-hidden">
+                {renderAgentTable(leftAgents, 0)}
+              </div>
+              <div className="bg-white rounded-[2rem] border border-primary/10 shadow-sm overflow-hidden">
+                {renderAgentTable(rightAgents, half)}
+              </div>
             </>
           ) : (
             <div className="col-span-2 px-8 py-12 text-center">
               <p className="text-primary/40 font-medium font-sans italic">Chưa có thông tin đại lý cho dự án này.</p>
             </div>
           )}
+        </div>
+
+        {/* Footer Note */}
+        <div className="px-8 py-4 bg-accent/5 border-t border-primary/5">
+          <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest font-display italic">
+            (*) Vui lòng Click để xem chi tiết trong Link Dự án
+          </p>
         </div>
       </motion.section>
     </div>

@@ -85,8 +85,9 @@ export default function UnitDataTab({
   }, [projectId, auth.currentUser?.uid]);
 
   const renderAgentValue = (val: any) => {
-    if (!val || val === 'N/A' || val === '0') return '';
-    return String(val);
+    const str = String(val || '').trim();
+    if (!str || str.toLowerCase() === 'n/a' || str === '0') return '';
+    return str;
   };
 
   const handleUnitAction = async (unit: any, actionType: string, e?: React.MouseEvent) => {
@@ -288,6 +289,14 @@ export default function UnitDataTab({
     loadUnitData();
   }, [sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, projectName]);
 
+  useEffect(() => {
+    if (processedData.length > 0) {
+      console.log('UnitDataTab - Sample Item:', processedData[0]);
+      console.log('UnitDataTab - Available Keys:', Object.keys(processedData[0]));
+      console.log('UnitDataTab - Current Filters:', filters);
+    }
+  }, [processedData, filters]);
+
   const columns = useMemo(() => {
     if (processedData.length === 0) return [];
     const allKeys = Object.keys(processedData[0]).filter(key => 
@@ -310,7 +319,10 @@ export default function UnitDataTab({
   const filterOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
     columns.forEach(col => {
-      const uniqueValues = Array.from(new Set(processedData.map(item => item[col]))).filter(Boolean);
+      const uniqueValues = Array.from(new Set(processedData.map(item => {
+        const actualKey = Object.keys(item).find(k => k.toLowerCase() === col.toLowerCase()) || col;
+        return item[actualKey];
+      }))).filter(Boolean);
       options[col] = uniqueValues.sort() as string[];
     });
     return options;
@@ -326,7 +338,12 @@ export default function UnitDataTab({
       }
 
       for (const [key, value] of Object.entries(filters)) {
-        if (value && item[key] !== value) return false;
+        if (value) {
+          const actualKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase()) || key;
+          const itemValue = removeAccents(String(item[actualKey] || '').toLowerCase().trim());
+          const filterValue = removeAccents(String(value).toLowerCase().trim());
+          if (itemValue !== filterValue) return false;
+        }
       }
 
       if (priceRange.min !== '' || priceRange.max !== '') {
@@ -703,19 +720,17 @@ export default function UnitDataTab({
                   </div>
                 </div>
 
-                {/* Phân nhóm (Optional) */}
+                {/* Tên ĐL Filter */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Phân nhóm</label>
+                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Tên ĐL</label>
                   <div className="relative">
                     <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans" 
-                      value={groupBy} 
-                      onChange={(e) => setGroupBy(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
+                      value={filters['TÊN ĐL'] || ''}
+                      onChange={(e) => setFilters({...filters, 'TÊN ĐL': e.target.value})}
                     >
-                      <option value="">Không phân nhóm</option>
-                      {columns
-                        .filter(c => ['Phân khu', 'Loại hình', 'Hướng', 'Quỹ'].some(opt => c.toLowerCase().includes(opt.toLowerCase())))
-                        .map(c => <option key={c} value={c}>Nhóm theo {c}</option>)}
+                      <option value="">Tất cả đại lý</option>
+                      {filterOptions['TÊN ĐL']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -815,7 +830,7 @@ export default function UnitDataTab({
                           key={unitCode || i}
                           whileHover={{ backgroundColor: "rgba(217, 155, 40, 0.02)" }}
                           className={`flex items-center group cursor-pointer transition-all border-b border-gray-50 ${
-                            i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                            i % 2 === 0 ? 'bg-white' : 'bg-accent/5'
                           }`}
                           onClick={() => setSelectedUnit(row)}
                         >

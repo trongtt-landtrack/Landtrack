@@ -249,7 +249,7 @@ export async function fetchConfiguredSheetData<T>(
         // Use requiredFields as keywords if available, otherwise default keywords
         const headerKeywords = (requiredFields && requiredFields.length > 0) 
           ? requiredFields.map(f => f.toLowerCase()) 
-          : ['mã căn', 'mã sp', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng', 'tình trạng'];
+          : ['mã căn', 'mã sp', 'phân khu', 'loại hình', 'giá', 'diện tích', 'hướng', 'tầng', 'tình trạng', 'tên đl', 'đại lý'];
 
         // First, try the configured header row (with a small buffer for gviz shifts)
         const configuredIndex = headerRow - 1;
@@ -318,8 +318,8 @@ export async function fetchConfiguredSheetData<T>(
 
         // Header Normalization Matrix - Aligned with User's proposed Standard Matrix
         const HEADER_MATRIX: Record<string, string[]> = {
-          'TÊN ĐL': ['tên đl', 'tên đại lý', 'agent name', 'full agent name', 'đại lý phân phối', 'đl'],
-          'Mã ĐL': ['mã đl', 'mã đại lý', 'agent id', 'agent code'],
+          'TÊN ĐL': ['tên đl', 'tên đại lý', 'agent name', 'full agent name', 'đại lý phân phối'],
+          'Mã ĐL': ['mã đl', 'mã đại lý', 'agent id', 'agent code', 'đl'],
           'Mã căn': ['mã căn', 'mã sp', 'unit code', 'số căn', 'mã sản phẩm', 'căn số', 'mã sp'],
           'Phân khu': ['phân khu', 'khu', 'block', 'tòa', 'zone', 'subdivision'],
           'Loại hình': ['loại hình', 'loại căn hộ', 'loại sp', 'type', 'product type'],
@@ -401,8 +401,12 @@ export async function fetchConfiguredSheetData<T>(
               const cleanHeader = standardHeader.replace(/\n/g, ' ').trim();
               const value = row[index] ? row[index].trim() : '';
               
-              // Only set if not already set, or if current value is empty and new value is not
-              if (!obj[cleanHeader] || (obj[cleanHeader] === '' && value !== '')) {
+              // Priority logic for 'TÊN ĐL'
+              // If we find 'Tên ĐL' (full name), we want it to overwrite 'ĐL' (short code)
+              const isFullNameHeader = header.toLowerCase().includes('tên');
+              const isShortCodeHeader = header.toLowerCase() === 'đl';
+              
+              if (!obj[cleanHeader] || (obj[cleanHeader] === '' && value !== '') || (cleanHeader === 'TÊN ĐL' && isFullNameHeader)) {
                 obj[cleanHeader] = value;
               }
             }

@@ -199,14 +199,14 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
             </div>
           ) : filteredPhones.length > 0 ? (
             <AnimatePresence mode="popLayout">
-              {filteredPhones.map((p) => (
+              {filteredPhones.map((p, idx) => (
                 <motion.div 
                   key={p.id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className={`p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group ${!standalone ? 'py-3' : ''}`}
+                  className={`p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group ${!standalone ? 'py-3' : ''} ${idx % 2 === 0 ? 'bg-white' : 'bg-accent/5'}`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`rounded-full bg-accent/10 flex items-center justify-center text-accent ${standalone ? 'w-10 h-10' : 'w-8 h-8'}`}>
