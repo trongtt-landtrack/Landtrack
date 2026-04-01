@@ -81,17 +81,30 @@ export default function LoginPage() {
           return;
         }
 
-        // Check if phone is allowed and if it's already registered
+        // Normalize referrer phone
+        const cleanReferrer = referrer.replace(/\s+/g, '');
+        let normalizedReferrer = cleanReferrer;
+        if (normalizedReferrer.startsWith('+84')) {
+          normalizedReferrer = '0' + normalizedReferrer.slice(3);
+        }
+
+        if (!normalizedReferrer) {
+          setError('Vui lòng nhập số điện thoại người giới thiệu.');
+          setLoading(false);
+          return;
+        }
+
+        // Check if referrer phone is allowed and if user phone is already registered
         try {
-          // Check allowed_phones (handle both 0... and +84... formats in DB)
+          // Check allowed_phones for referrer
           const allowedQ = query(
             collection(db, 'allowed_phones'), 
-            where('phone', 'in', [normalizedPhone, '+84' + normalizedPhone.slice(1)])
+            where('phone', 'in', [normalizedReferrer, '+84' + normalizedReferrer.slice(1)])
           );
           const allowedSnapshot = await getDocs(allowedQ);
           
           if (allowedSnapshot.empty) {
-            setError('Số điện thoại chưa được đăng ký trước trong danh sách cho phép. Vui lòng liên hệ Admin.');
+            setError('Số điện thoại người giới thiệu không hợp lệ hoặc chưa được cấp phép. Vui lòng kiểm tra lại.');
             setLoading(false);
             return;
           }
@@ -162,7 +175,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col lg:flex-row w-full max-w-5xl relative">
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row w-full max-w-6xl relative max-h-[85vh]">
         
         {/* Close Button */}
         <button 
@@ -197,23 +210,39 @@ export default function LoginPage() {
         </div>
 
         {/* Right Side - Form */}
-        <div className="lg:w-7/12 p-8 lg:p-12 relative overflow-y-auto max-h-[90vh]">
-          {!isLogin && !isForgotPassword && (
-            <button 
-              onClick={() => {
-                setIsLogin(true);
-                setError('');
-                setSuccessMessage('');
-              }}
-              className="mb-6 flex items-center gap-2 text-sm text-gray-500 hover:text-primary transition-colors font-display font-bold"
-            >
-              <ArrowLeft className="w-4 h-4" /> Quay lại đăng nhập
-            </button>
+        <div className="lg:w-7/12 p-8 lg:p-12 relative overflow-y-auto">
+          {!isForgotPassword ? (
+            <div className="flex border-b border-gray-200 mb-8">
+              <button
+                onClick={() => {
+                  setIsLogin(true);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                className={`flex-1 pb-4 text-center font-display font-bold text-xl transition-colors border-b-2 ${
+                  isLogin ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Đăng nhập
+              </button>
+              <button
+                onClick={() => {
+                  setIsLogin(false);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                className={`flex-1 pb-4 text-center font-display font-bold text-xl transition-colors border-b-2 ${
+                  !isLogin ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Đăng ký
+              </button>
+            </div>
+          ) : (
+            <h2 className="text-2xl font-display font-bold text-gray-900 mb-8">
+              Khôi phục mật khẩu
+            </h2>
           )}
-
-          <h2 className="text-2xl font-display font-bold text-gray-900 mb-8">
-            {isForgotPassword ? 'Khôi phục mật khẩu' : (isLogin ? 'Đăng nhập' : 'Đăng ký tài khoản')}
-          </h2>
 
           {error && <p className="text-red-500 text-sm mb-4 bg-red-50 p-2 rounded font-sans">{error}</p>}
           {successMessage && <p className="text-green-600 text-sm mb-4 bg-green-50 p-2 rounded font-sans">{successMessage}</p>}
@@ -437,22 +466,6 @@ export default function LoginPage() {
                 {isLogin ? 'Đăng nhập' : 'Đăng ký'}
               </button>
             </form>
-          )}
-
-          {!isForgotPassword && isLogin && (
-            <p className="mt-6 text-center text-sm text-gray-600 font-sans">
-              Chưa có tài khoản?
-              <button 
-                onClick={() => {
-                  setIsLogin(false);
-                  setError('');
-                  setSuccessMessage('');
-                }}
-                className="ml-1 text-primary font-display font-bold hover:text-accent transition-colors"
-              >
-                Đăng ký ngay
-              </button>
-            </p>
           )}
         </div>
       </div>
