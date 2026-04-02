@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import BottomNav from './components/BottomNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getProjectConfigs } from './services/configService';
 import { ThemeProvider } from './context/ThemeContext';
@@ -18,11 +19,12 @@ function Layout() {
   return (
     <div className="min-h-screen bg-[var(--bg-app)] font-sans">
       <Navbar />
-      <main>
+      <main className="pb-20 sm:pb-0">
         <Suspense fallback={<div className="p-8 text-center">Đang tải...</div>}>
           <Outlet />
         </Suspense>
       </main>
+      <BottomNav />
       <InstallPWA />
     </div>
   );

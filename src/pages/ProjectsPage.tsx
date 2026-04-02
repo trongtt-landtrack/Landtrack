@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, Filter, LayoutGrid, Home, Building2, MapPin, ChevronRight, X, Scale, ArrowRightLeft, Trash2, Database, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Loader2, Filter, LayoutGrid, Home, Building2, MapPin, ChevronRight, X, Scale, ArrowRightLeft, Trash2, Database, ChevronUp, ChevronDown, MessageSquare, Heart, Share2 } from 'lucide-react';
 import ProjectCard from '../components/ProjectCard';
 import Sidebar from '../components/Sidebar';
 import ContactCard from '../components/ContactCard';
@@ -12,9 +12,10 @@ import { auth, db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { fetchConfiguredSheetData, clearCache } from '../services/googleSheets';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { RequirePermission } from '../contexts/PermissionsContext';
+import { useDebounce } from '../hooks/useDebounce';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function ProjectsPage() {
   const { user, userRole } = useAuth();
@@ -29,6 +30,7 @@ export default function ProjectsPage() {
   
   const [searchMode, setSearchMode] = useState<'projects' | 'units'>('projects');
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     developer: '',
@@ -39,6 +41,7 @@ export default function ProjectsPage() {
 
   // Global Unit Search State
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
+  const debouncedUnitSearchTerm = useDebounce(unitSearchTerm, 500);
   const [landAreaMin, setLandAreaMin] = useState('');
   const [landAreaMax, setLandAreaMax] = useState('');
   const [constAreaMin, setConstAreaMin] = useState('');
@@ -175,8 +178,8 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter(project => {
-      const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            project.location.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = project.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+                            project.location.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
       const matchesDeveloper = filters.developer === '' || project.developer === filters.developer;
       const matchesLocation = filters.location === '' || project.location === filters.location;
       const matchesType = filters.type === '' || project.type === filters.type;
@@ -184,14 +187,15 @@ export default function ProjectsPage() {
       
       return matchesSearch && matchesDeveloper && matchesLocation && matchesType && matchesStatus;
     });
-  }, [projects, searchTerm, filters]);
+  }, [projects, debouncedSearchTerm, filters]);
 
-  const handleGlobalUnitSearch = async () => {
+  const handleGlobalUnitSearch = useCallback(async (termOverride?: string) => {
+    const term = termOverride !== undefined ? termOverride : unitSearchTerm;
     if (userRole === 'guest') {
       setShowGuestWarning(true);
       return;
     }
-    if (!unitSearchTerm && !landAreaMin && !landAreaMax && !constAreaMin && !constAreaMax) {
+    if (!term && !landAreaMin && !landAreaMax && !constAreaMin && !constAreaMax) {
       setUnitSearchError('Vui lòng nhập từ khóa hoặc khoảng diện tích để tìm kiếm.');
       return;
     }
@@ -233,7 +237,7 @@ export default function ProjectsPage() {
 
         // Smart Search: Check all fields
         const unitText = Object.values(unit).join(' ').toLowerCase();
-        const matchesTerm = !unitSearchTerm || unitText.includes(unitSearchTerm.toLowerCase());
+        const matchesTerm = !term || unitText.includes(term.toLowerCase());
 
         const landArea = getAreaValue(unit, landKeywords);
         const constArea = getAreaValue(unit, constKeywords);
@@ -269,10 +273,10 @@ export default function ProjectsPage() {
                                   loaiHinh.toLowerCase().includes('bàn giao') || 
                                   loaiHinh.toLowerCase().includes('hoàn thiện');
         const isTCBGProductType = tcbg.toLowerCase().includes('shop') || 
-                                 tcbg.toLowerCase().includes('căn hộ') || 
-                                 tcbg.toLowerCase().includes('villa') || 
-                                 tcbg.toLowerCase().includes('liền kề') ||
-                                 tcbg.toLowerCase().includes('biệt thự');
+                                  tcbg.toLowerCase().includes('căn hộ') || 
+                                  tcbg.toLowerCase().includes('villa') || 
+                                  tcbg.toLowerCase().includes('liền kề') ||
+                                  tcbg.toLowerCase().includes('biệt thự');
         
         if (isLoaiHinhHandover && isTCBGProductType) {
           unitData['Loại hình'] = tcbg;
@@ -296,7 +300,13 @@ export default function ProjectsPage() {
     } finally {
       setIsSearchingUnits(false);
     }
-  };
+  }, [unitSearchTerm, landAreaMin, landAreaMax, constAreaMin, constAreaMax, projects, userRole]);
+
+  useEffect(() => {
+    if (debouncedUnitSearchTerm.length >= 2) {
+      handleGlobalUnitSearch(debouncedUnitSearchTerm);
+    }
+  }, [debouncedUnitSearchTerm, handleGlobalUnitSearch]);
 
   const toggleComparison = (result: UnitSearchResult) => {
     setComparisonList(prev => {
@@ -652,22 +662,27 @@ export default function ProjectsPage() {
                       const unitCode = getVal('Mã căn');
 
                       return (
-                        <div 
+                        <motion.div 
                           key={`${result.projectId}-${idx}`}
-                          className="bg-white border border-primary/10 rounded-2xl p-4 sm:p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative overflow-hidden flex flex-col lg:flex-row lg:items-center gap-4"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-white border border-gray-100 rounded-3xl p-4 sm:p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative overflow-hidden flex flex-col lg:flex-row lg:items-center gap-4"
                         >
                           {/* Left: Basic Info */}
                           <div className="flex-shrink-0 lg:w-48 flex flex-col justify-center">
-                            <span className="text-[9px] font-black text-accent uppercase tracking-[0.2em] font-display block mb-1 truncate" title={result.projectName}>
-                              {result.projectName}
-                            </span>
-                            <h3 className="text-xl font-black text-primary font-display tracking-tight mb-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[9px] font-black text-accent uppercase tracking-widest font-display truncate max-w-[120px]" title={result.projectName}>
+                                {result.projectName}
+                              </span>
+                              <ChevronRight className="w-2.5 h-2.5 text-gray-300" />
+                            </div>
+                            <h3 className="text-lg font-black text-primary font-display tracking-tight mb-2">
                               {unitCode}
                             </h3>
                             {status && (
-                              <div className={`inline-flex self-start px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-display ${
+                              <div className={`inline-flex self-start px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${
                                 status.toLowerCase().includes('trống') || status.toLowerCase().includes('mở') 
-                                  ? 'bg-green-50 text-green-600 border-green-100' 
+                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                                   : status.toLowerCase().includes('cọc') || status.toLowerCase().includes('đã bán')
                                   ? 'bg-red-50 text-red-600 border-red-100'
                                   : 'bg-gray-50 text-gray-500 border-gray-100'
@@ -678,46 +693,60 @@ export default function ProjectsPage() {
                           </div>
 
                           {/* Middle: Key Metrics */}
-                          <div className="flex-grow grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 py-3 lg:py-0 border-y lg:border-y-0 lg:border-x border-gray-100 px-0 lg:px-6">
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Giá gồm VAT</span>
-                              <span className="text-sm font-black text-accent font-display block truncate" title={price}>{price}</span>
+                          <div className="flex-grow grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 py-3 lg:py-0 border-y lg:border-y-0 lg:border-x border-gray-50 px-0 lg:px-6">
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Giá niêm yết</span>
+                              <span className="text-xs font-black text-accent font-display block truncate" title={price}>{price}</span>
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Diện tích</span>
-                              <span className="text-sm font-black text-primary font-display block truncate" title={area ? `${area} m²` : ''}>{area ? `${area} m²` : ''}</span>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Diện tích</span>
+                              <span className="text-xs font-black text-primary font-display block truncate" title={area ? `${area} m²` : ''}>{area ? `${area} m²` : ''}</span>
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Loại hình</span>
-                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={type}>{type}</span>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Loại hình</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={type}>{type}</span>
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Hướng</span>
-                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={orientation}>{orientation}</span>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Hướng</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={orientation}>{orientation}</span>
                             </div>
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-black text-primary/30 uppercase tracking-widest font-display block">Đại lý</span>
-                              <span className="text-sm font-bold text-primary/70 font-display block truncate" title={agent}>{agent}</span>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Đại lý</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={agent}>{agent}</span>
                             </div>
                           </div>
 
                           {/* Right: Actions */}
                           <div className="flex flex-row lg:flex-col items-center gap-2 lg:w-36 flex-shrink-0">
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleComparison(result);
-                              }}
-                              className={`flex-1 lg:w-full py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest font-display shadow-sm ${
-                                isComparing 
-                                  ? 'bg-orange-600 text-white shadow-orange-600/20' 
-                                  : 'bg-primary/5 text-primary hover:bg-primary/10'
-                              }`}
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5" />
-                              {isComparing ? 'ĐANG SO SÁNH' : 'SO SÁNH'}
-                            </button>
+                            <div className="flex gap-1.5 flex-1 lg:w-full">
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  // Logic copy zalo tương tự UnitDataTab
+                                  const text = `[LANDTRACK] Thông tin căn hộ:\n- Dự án: ${result.projectName}\n- Mã căn: ${unitCode}\n- Giá: ${price}\n- Diện tích: ${area} m2\n- Trạng thái: ${status}`;
+                                  navigator.clipboard.writeText(text);
+                                  alert('Đã sao chép thông tin căn hộ!');
+                                }}
+                                className="flex-1 p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center border border-emerald-100"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleComparison(result);
+                                }}
+                                className={`flex-1 p-2 rounded-xl transition-all flex items-center justify-center border ${
+                                  isComparing 
+                                    ? 'bg-orange-600 text-white border-orange-600 shadow-sm' 
+                                    : 'bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100'
+                                }`}
+                              >
+                                <ArrowRightLeft className="w-4 h-4" />
+                              </button>
+                            </div>
                             <button 
                               onClick={(e) => {
                                 if (result.projectId === 'unknown') {
@@ -726,14 +755,14 @@ export default function ProjectsPage() {
                                 }
                                 handleUnitClick(result.projectId, result.unitData['Mã căn'] || '', e);
                               }}
-                              className={`flex-1 lg:w-full py-2 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest font-display shadow-md shadow-primary/10 hover:bg-accent transition-all duration-300 flex items-center justify-center gap-1.5 ${
+                              className={`flex-1 lg:w-full py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest font-display shadow-md shadow-primary/10 hover:bg-accent transition-all duration-300 flex items-center justify-center gap-1.5 ${
                                 result.projectId === 'unknown' ? 'opacity-20 cursor-not-allowed' : ''
                               }`}
                             >
                               CHI TIẾT <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>

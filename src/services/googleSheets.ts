@@ -173,16 +173,35 @@ export async function fetchConfiguredSheetData<T>(
   }
 
   // 2. Check Persistent Cache (localStorage)
+  let cachedData: T[] | null = null;
   if (persistentCacheDuration > 0) {
     const storageKey = PERSISTENT_CACHE_PREFIX + cacheKey;
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
         const { data, timestamp } = JSON.parse(stored);
-        if (now - timestamp < persistentCacheDuration) {
-          // Update memory cache
+        const isStale = now - timestamp >= persistentCacheDuration;
+        
+        if (!isStale) {
+          // Update memory cache and return fresh data
           cache.set(cacheKey, { data, timestamp });
           return data as T[];
+        } else {
+          // Data is stale, but we can return it immediately and revalidate in background
+          cachedData = data as T[];
+          console.log('Returning stale data while revalidating:', url);
+          
+          // Trigger revalidation in background
+          setTimeout(() => {
+            fetchConfiguredSheetData(url, headerRow, dataStartRow, dataEndRow, requiredFields, headerMatrix, persistentCacheDuration)
+              .then(() => {
+                console.log('Background revalidation successful:', url);
+                window.dispatchEvent(new CustomEvent('data-revalidated', { detail: { url, cacheKey } }));
+              })
+              .catch(err => console.error('Background revalidation failed:', err));
+          }, 100);
+          
+          return cachedData;
         }
       } catch (e) {
         console.error('Error parsing persistent cache:', e);

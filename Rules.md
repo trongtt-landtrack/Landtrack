@@ -1,32 +1,26 @@
-# Quy tắc và Logic Hệ thống
+# Rules.md
 
-## 1. Quản lý Số điện thoại cho phép (Allowed Phones)
-- **Mục đích**: Kiểm soát các số điện thoại được phép truy cập các tính năng đặc biệt hoặc hiển thị thông tin liên hệ.
-- **Dữ liệu**: Lưu trữ trong collection `allowed_phones` trên Firestore.
-- **Cấu trúc dữ liệu**:
-  - `phone`: Chuỗi số điện thoại (đã chuẩn hóa về định dạng 0xxx).
-  - `position`: Chức danh/Vị trí (ví dụ: Giám đốc dự án, Quản lý).
-  - `createdAt`: Thời gian tạo (ISO string).
-- **Logic chuẩn hóa SĐT**:
-  - Loại bỏ tất cả ký tự không phải số.
-  - Chuyển đầu số `84` thành `0`.
-  - Đảm bảo luôn bắt đầu bằng số `0`.
+## 1. Project Overview
+LandTrack is a real-time property management and tracking application built with React, Vite, Tailwind CSS, and Firebase.
 
-## 2. Giao diện Admin (AdminPage)
-- **Thêm mới**: Cho phép nhập SĐT và Chức danh. Kiểm tra trùng lặp trước khi thêm.
-- **Chỉnh sửa**: Cho phép sửa trực tiếp SĐT và Chức danh của các bản ghi đã tồn tại thông qua nút "Chỉnh sửa" (biểu tượng bút).
-- **Xóa**: Cho phép xóa số điện thoại khỏi danh sách.
-- **Dọn dẹp trùng lặp**: Tính năng tự động quét và xóa các số điện thoại bị lặp lại trong cơ sở dữ liệu.
+## 2. Security Logic
+- **Domain Locking:** Implemented in `src/main.tsx`. The app checks the current hostname against an `ALLOWED_DOMAINS` list. If the domain is not authorized, the user is redirected to `google.com`.
+- **Firestore Security Rules:** Defined in `firestore.rules`.
+    - **Default Deny:** All access is denied by default.
+    - **Validation:** Strict validation for all collections (`projects`, `users`, `favorites`, `user_history`).
+    - **Size Limits:** Enforced `size()` limits on all string fields to prevent DoS attacks.
+    - **Immutable Fields:** Protected critical fields (e.g., `id`, `email`, `createdAt`, `uid`, `timestamp`) from being modified after creation.
+    - **Ownership:** Enforced strict ownership checks for user-specific data.
+    - **Role-Based Access:** Implemented `isSuperAdmin` and `isManagement` checks for sensitive operations.
 
-## 3. Card Liên hệ (ContactCard)
-- **Hiển thị**: Xuất hiện ở cuối trang Danh mục Dự án (`ProjectsPage`).
-- **Logic chọn liên hệ**:
-  - Ưu tiên hiển thị người có chức danh chứa từ khóa "Quản lý" hoặc "Giám đốc".
-  - Nếu không có, hiển thị liên hệ đầu tiên trong danh sách.
-- **Hành động**:
-  - Nút "Liên hệ ngay": Gọi điện trực tiếp qua giao thức `tel:`.
-  - Nút "Chat Zalo": Mở link `https://zalo.me/[SĐT]`.
+## 3. Performance Logic
+- **Lazy Loading:** Implemented in `src/App.tsx` using `React.lazy` and `Suspense` for main pages (`ProjectsPage`, `ProjectDetailPage`, `ProfilePage`, `AdminPage`, `LoginPage`).
+- **Caching:** Memory cache duration for Google Sheets API data in `src/services/googleSheets.ts` is set to 15 minutes.
 
-## 4. Quản lý Dữ liệu Hệ thống (AllDataManagement)
-- Hiển thị cấu hình mapping giữa Google Sheet và ứng dụng.
-- Chỉ hiển thị các trường dữ liệu cốt lõi để đảm bảo tính bảo mật và gọn gàng.
+## 4. PWA Logic
+- **Manifest:** Defined in `public/manifest.json`.
+- **Installation Prompt:** Handled by `src/components/InstallPWA.tsx`, which listens for the `beforeinstallprompt` event.
+
+## 5. UI/UX Logic
+- **Mobile Optimization:** Unit data display in `src/components/UnitDataTab.tsx` uses card views for better readability on mobile devices.
+- **Project Cards:** `src/components/ProjectCard.tsx` uses a modern card design with image-based branding and clear status badges.

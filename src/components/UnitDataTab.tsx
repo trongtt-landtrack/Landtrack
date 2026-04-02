@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User, Copy, Share2 } from 'lucide-react';
+import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, ChevronRight, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User, Copy, Share2, Phone, MessageSquare } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { STANDARD_HEADERS, MASTER_SHEET_URL } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface UnitDataTabProps {
   sheetUrl: string;
@@ -50,12 +51,14 @@ export default function UnitDataTab({
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
   const [groupBy, setGroupBy] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [priceRange, setPriceRange] = useState<{ min: number | '', max: number | '' }>({ min: 0, max: 500000 });
   const [areaRange, setAreaRange] = useState<{ min: number | '', max: number | '' }>({ min: 0, max: 1000 });
   const [likedUnits, setLikedUnits] = useState<Set<string>>(new Set());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<any | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
+  const [expandedMobileUnit, setExpandedMobileUnit] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -274,6 +277,26 @@ export default function UnitDataTab({
   }, [initialSearchTerm, processedData]);
 
   useEffect(() => {
+    const handleRevalidation = (event: any) => {
+      const { url, cacheKey } = event.detail;
+      const sourceUrl = projectName ? MASTER_SHEET_URL : (sheetUrl || '');
+      if (url.includes(sourceUrl) || cacheKey.includes(sourceUrl)) {
+        console.log('Data revalidated, updating state:', sourceUrl);
+        // Re-fetch from cache (which is now updated)
+        fetchConfiguredSheetData<any>(sourceUrl, headerRow || 1, dataStartRow || 2, dataEndRow || 0, requiredFields, headerMatrix)
+          .then(newData => {
+            if (JSON.stringify(newData) !== JSON.stringify(data)) {
+              setData(newData);
+            }
+          });
+      }
+    };
+
+    window.addEventListener('data-revalidated', handleRevalidation);
+    return () => window.removeEventListener('data-revalidated', handleRevalidation);
+  }, [projectName, sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, headerMatrix, data]);
+
+  useEffect(() => {
     async function loadUnitData() {
       try {
         setLoading(true);
@@ -349,9 +372,9 @@ export default function UnitDataTab({
 
   const filteredData = useMemo(() => {
     let result = processedData.filter(item => {
-      if (searchTerm) {
+      if (debouncedSearchTerm) {
         const matchesSearch = Object.values(item).some(val => 
-          String(val).toLowerCase().includes(searchTerm.toLowerCase())
+          String(val).toLowerCase().includes(debouncedSearchTerm.toLowerCase())
         );
         if (!matchesSearch) return false;
       }
@@ -457,11 +480,11 @@ export default function UnitDataTab({
 
   const activeFiltersCount = useMemo(() => {
     let count = Object.keys(filters).length;
-    if (searchTerm) count++;
+    if (debouncedSearchTerm) count++;
     if (priceRange.min !== 0 || priceRange.max !== 500000) count++;
     if (areaRange.min !== 0 || areaRange.max !== 1000) count++;
     return count;
-  }, [filters, searchTerm, priceRange, areaRange]);
+  }, [filters, debouncedSearchTerm, priceRange, areaRange]);
 
   const getStatusColor = (s: string) => {
     const lower = s.toLowerCase();
@@ -519,29 +542,29 @@ export default function UnitDataTab({
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
       {/* Header & Stats Summary */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 sticky top-16 z-30 bg-[var(--bg-app)] py-4 -mx-4 px-4 md:static md:bg-transparent md:p-0">
         <div>
-          <h2 className="text-3xl font-black text-primary uppercase tracking-tight mb-2 font-display">
+          <h2 className="text-2xl md:text-3xl font-black text-primary uppercase tracking-tight mb-2 font-display">
             QUỸ CĂN CHI TIẾT
           </h2>
           <div className="flex items-center gap-3">
             <div className="h-1 w-12 bg-accent rounded-full"></div>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest font-display">
+            <p className="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest font-display">
               {filteredData.length} kết quả phù hợp
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <div className="flex items-center bg-white rounded-2xl p-1 border border-gray-100 shadow-sm">
             {[
-              { label: 'Diện tích', key: 'DT', icon: <Scale className="w-4 h-4" /> },
-              { label: 'Giá', key: 'Giá', icon: <Database className="w-4 h-4" /> },
+              { label: 'DT', key: 'DT', icon: <Scale className="w-3.5 h-3.5" /> },
+              { label: 'Giá', key: 'Giá', icon: <Database className="w-3.5 h-3.5" /> },
             ].map((btn) => (
               <button
                 key={btn.key}
                 onClick={() => handleSort(btn.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-display ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all font-display ${
                   sortConfig.key === btn.key 
                     ? 'bg-primary text-white shadow-lg' 
                     : 'text-gray-400 hover:text-primary'
@@ -558,16 +581,16 @@ export default function UnitDataTab({
 
           <button 
             onClick={() => setIsFilterOpen(!isFilterOpen)} 
-            className={`relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-2xl transition-all shadow-sm font-display ${
+            className={`relative flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-2xl transition-all shadow-sm font-display ${
               isFilterOpen 
                 ? 'bg-accent text-white' 
                 : 'bg-white text-primary border border-gray-100 hover:bg-gray-50'
             }`}
           >
             <Filter className="w-4 h-4" />
-            {isFilterOpen ? 'Đóng bộ lọc' : 'Bộ lọc nâng cao'}
+            {isFilterOpen ? 'Đóng' : 'Bộ lọc'}
             {activeFiltersCount > 0 && !isFilterOpen && (
-              <span className="absolute -top-2 -right-2 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-lg font-display">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-lg font-display">
                 {activeFiltersCount}
               </span>
             )}
@@ -582,17 +605,12 @@ export default function UnitDataTab({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex flex-wrap items-center gap-2"
+            className="flex flex-wrap items-center gap-2 pb-2"
           >
-            <div className="flex items-center gap-2 mr-2">
-              <Filter className="w-3 h-3 text-accent" />
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">Đang lọc:</span>
-            </div>
-            
-            {searchTerm && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[10px] font-bold border border-gray-100 shadow-sm font-display">
+            {debouncedSearchTerm && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[9px] font-bold border border-gray-100 shadow-sm font-display">
                 <span className="text-gray-400">Từ khóa:</span>
-                <span>{searchTerm}</span>
+                <span>{debouncedSearchTerm}</span>
                 <button onClick={() => setSearchTerm('')} className="hover:text-accent transition-colors"><X className="w-3 h-3" /></button>
               </div>
             )}
@@ -947,7 +965,7 @@ export default function UnitDataTab({
               </div>
 
               {/* Mobile View: Cards with Height Limit */}
-              <div className="lg:hidden max-h-[70vh] overflow-y-auto divide-y divide-gray-50">
+              <div className="lg:hidden divide-y divide-gray-50">
                 {paginatedData.map((row, i) => {
                   const unitCodeCol = Object.keys(row).find(k => k.toLowerCase().includes('mã căn') || k.toLowerCase().includes('mã sp'));
                   const unitCode = unitCodeCol ? String(row[unitCodeCol]).trim() : '';
@@ -955,88 +973,130 @@ export default function UnitDataTab({
                   const status = statusCol ? String(row[statusCol]).trim() : '';
                   const isSuccess = likedUnits.has(unitCode);
 
+                  const priceCol = Object.keys(row).find(k => k.toLowerCase().includes('giá') && !k.toLowerCase().includes('đơn giá'));
+                  const areaCol = Object.keys(row).find(k => k.toLowerCase().includes('diện tích') || k.toLowerCase().includes('dt'));
+                  const price = row[priceCol || ''] || '-';
+                  const area = row[areaCol || ''] || '-';
+
+                  const isExpanded = expandedMobileUnit === unitCode;
+
                   return (
-                    <div key={unitCode || i} className="p-5 space-y-4" onClick={() => setSelectedUnit(row)}>
+                    <motion.div 
+                      key={unitCode || i} 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      layout
+                      className={`p-4 space-y-3 bg-white hover:bg-gray-50 transition-all duration-300 ${isExpanded ? 'ring-2 ring-accent/20 shadow-lg z-10 relative' : ''}`} 
+                      onClick={() => setExpandedMobileUnit(isExpanded ? null : unitCode)}
+                    >
                       <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">Mã căn</span>
-                          <h4 className="text-lg font-black text-accent font-display">{unitCode || `Căn #${i+1}`}</h4>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                            <Home className="w-5 h-5" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <h4 className="text-base font-black text-primary font-display tracking-tight">{unitCode || `Căn #${i+1}`}</h4>
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest font-display">{row['Phân khu'] || 'Dự án'}</span>
+                          </div>
                         </div>
-                        <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border font-display ${getStatusColor(status)}`}>
+                        <div className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${getStatusColor(status)}`}>
                           {status || 'N/A'}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                        {columns.slice(0, 12).map(col => {
-                          if (col.toLowerCase().includes('mã') || col.toLowerCase().includes('trạng thái') || col.toLowerCase().includes('tình trạng')) return null;
-                          const val = row[col] || '-';
-                          const isAgentName = col === 'TÊN ĐL';
-                          const isPTG = col === 'PTG';
-
-                          return (
-                            <div key={col} className="space-y-1.5">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate block font-display">{col}</span>
-                              {isAgentName ? (
-                                <a 
-                                  href={row['SpreadsheetID'] || '#'} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-bold text-accent hover:underline font-sans truncate block"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {renderAgentValue(val)}
-                                </a>
-                              ) : isPTG ? (
-                                val !== '-' && val !== '' ? (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (onNavigate) onNavigate('docs', { searchTerm: unitCode });
-                                    }}
-                                    className="text-sm font-bold text-accent hover:underline font-sans truncate block text-left"
-                                  >
-                                    {unitCode}
-                                  </button>
-                                ) : <p className="text-sm font-bold text-primary truncate font-sans">-</p>
-                              ) : (
-                                <p className="text-sm font-bold text-primary truncate font-sans">{String(val)}</p>
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
+                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Giá gồm VAT</span>
+                          <p className="text-xs font-black text-accent font-display truncate">{price}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
+                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Diện tích</span>
+                          <p className="text-xs font-black text-primary font-display truncate">{area} m²</p>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between items-center pt-2">
-                        <div className="flex gap-2">
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden pt-4 space-y-6 border-t border-gray-100 mt-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display">Hướng</p>
+                                <p className="text-xs font-bold text-primary">{row['Hướng'] || '-'}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display">Loại hình</p>
+                                <p className="text-xs font-bold text-primary">{row['Loại hình'] || '-'}</p>
+                              </div>
+                              <div className="col-span-2 space-y-1">
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display">Đại lý</p>
+                                <p className="text-xs font-bold text-primary">{renderAgentValue(row['TÊN ĐL'] || row['ĐL'])}</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <p className="text-[9px] font-black text-primary uppercase tracking-tight font-display border-b border-gray-50 pb-1">Thông số chi tiết</p>
+                              <div className="grid grid-cols-1 gap-2">
+                                {Object.keys(row)
+                                  .filter(key => 
+                                    key.trim() !== '' && 
+                                    key.length <= 60 && 
+                                    !HIDDEN_COLUMNS.includes(key) &&
+                                    !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
+                                  )
+                                  .map(key => (
+                                    <div key={key} className="flex justify-between items-center py-1 border-b border-gray-50/50">
+                                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display">{key}</span>
+                                      <span className="text-[10px] font-bold text-primary text-right">{row[key] || '-'}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="flex justify-between items-center pt-1">
+                        <div className="flex gap-1.5">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
                               copyToZalo(row);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-display"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all font-display border border-emerald-100"
                           >
-                            <Copy className="w-3 h-3" />
+                            <MessageSquare className="w-3 h-3" />
                             Zalo
                           </button>
-                          <button className="flex items-center gap-2 text-[10px] font-black text-accent uppercase tracking-widest font-display">
-                            Chi tiết <ArrowRightLeft className="w-3 h-3" />
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnitAction(row, 'interest', e);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all font-display border ${
+                              isSuccess ? 'bg-red-50 text-red-500 border-red-100' : 'bg-gray-50 text-gray-400 border-gray-100'
+                            }`}
+                          >
+                            <Heart className={`w-3 h-3 ${isSuccess ? 'fill-current' : ''}`} />
+                            {isSuccess ? 'Đã lưu' : 'Lưu'}
                           </button>
                         </div>
                         <button 
+                          className={`flex items-center gap-1 text-[9px] font-black text-primary uppercase tracking-widest font-display transition-all ${isExpanded ? 'text-accent' : 'opacity-60'}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleUnitAction(row, 'interest', e);
+                            setExpandedMobileUnit(isExpanded ? null : unitCode);
                           }}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-display ${
-                            isSuccess ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500'
-                          }`}
                         >
-                          <Heart className={`w-3 h-3 ${isSuccess ? 'fill-current' : ''}`} />
-                          {isSuccess ? 'Đã quan tâm' : 'Quan tâm'}
+                          {isExpanded ? 'Thu gọn' : 'Chi tiết'} <ChevronRight className={`w-3 h-3 transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -1108,8 +1168,8 @@ export default function UnitDataTab({
               onClick={e => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="relative p-8 lg:p-12 border-b border-gray-50 bg-gray-50/30">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="relative p-8 lg:p-12 border-b border-gray-50 bg-gray-50/30 h-[150px]">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-[750px]">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1 rounded-full bg-accent text-white text-[10px] font-black uppercase tracking-widest font-display">
@@ -1147,7 +1207,7 @@ export default function UnitDataTab({
               </div>
               
               {/* Modal Body */}
-              <div className="p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+              <div className="p-8 lg:p-12 overflow-y-auto custom-scrollbar w-[893.867px] h-[400px]">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
                   <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
@@ -1214,10 +1274,10 @@ export default function UnitDataTab({
               </div>
               
               {/* Modal Footer */}
-              <div className="p-8 lg:p-12 border-t border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row justify-between items-center gap-6">
+              <div className="p-8 lg:p-12 border-t border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row justify-between items-center gap-6 h-[120px]">
                 <div className="flex items-center gap-3 text-gray-400">
                   <Info className="w-5 h-5" />
-                  <p className="text-xs font-medium italic">Dữ liệu được cập nhật thời gian thực từ hệ thống</p>
+                  <p className="text-xs font-medium italic w-[200px]">Dữ liệu được cập nhật thời gian thực từ hệ thống</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">

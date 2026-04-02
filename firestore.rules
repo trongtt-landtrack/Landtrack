@@ -85,6 +85,10 @@ service cloud.firestore {
              request.resource.data[field].size() <= max;
     }
 
+    function isImmutable(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -109,11 +113,17 @@ service cloud.firestore {
       function isValidUser() {
         return hasRequiredFields(['id', 'name', 'role', 'email', 'status', 'createdAt']) &&
                hasOnlyAllowedFields(['id', 'name', 'role', 'email', 'status', 'createdAt', 'phone', 'avatarUrl', 'gender', 'workLocation', 'referrer']) &&
+               isValidString('id', 1, 100) &&
                isValidString('name', 1, 100) &&
-               request.resource.data.role is string &&
-               request.resource.data.email is string &&
-               request.resource.data.status is string &&
-               request.resource.data.createdAt is string;
+               isValidString('role', 1, 50) &&
+               isValidString('email', 5, 100) &&
+               isValidString('status', 1, 50) &&
+               isValidString('createdAt', 1, 50) &&
+               (!('phone' in request.resource.data) || isValidString('phone', 0, 20)) &&
+               (!('avatarUrl' in request.resource.data) || isValidString('avatarUrl', 0, 500)) &&
+               (!('gender' in request.resource.data) || isValidString('gender', 0, 20)) &&
+               (!('workLocation' in request.resource.data) || isValidString('workLocation', 0, 100)) &&
+               (!('referrer' in request.resource.data) || isValidString('referrer', 0, 100));
       }
 
       allow create: if isOwner(userId) 
@@ -123,10 +133,11 @@ service cloud.firestore {
       allow update: if isSuperAdmin() || 
                     (isOwner(userId) 
                      && isValidUser()
+                     && isImmutable('id')
+                     && isImmutable('email')
+                     && isImmutable('createdAt')
                      && request.resource.data.role == resource.data.role
-                     && request.resource.data.status == resource.data.status
-                     && request.resource.data.email == resource.data.email
-                     && request.resource.data.createdAt == resource.data.createdAt);
+                     && request.resource.data.status == resource.data.status);
                      
       allow delete: if isSuperAdmin();
     }
@@ -144,7 +155,7 @@ service cloud.firestore {
       }
 
       allow create: if isAuthenticated() && isValidFavorite();
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid) && isValidFavorite();
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid) && isValidFavorite() && isImmutable('uid') && isImmutable('timestamp');
       allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isSuperAdmin());
     }
 
