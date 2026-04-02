@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Loader2, FileText, Search, ExternalLink, Info, Filter } from 'lucide-react';
-import { MASTER_SHEET_URL } from '../constants';
+import { FileText, Search, ExternalLink, Info, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useProjectData } from '../hooks/useProjectData';
+import { Skeleton } from './ui/Skeleton';
 
 interface DocsTabProps {
   sheetUrl: string;
@@ -30,65 +30,34 @@ export default function DocsTab({
   headerMatrix,
   projectName,
   initialSearchTerm = '',
-  initialData,
-  initialLoading
+  initialData
 }: DocsTabProps) {
-  const [data, setData] = useState<any[]>(initialData || []);
-  const [loading, setLoading] = useState(initialLoading !== undefined ? initialLoading : true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+
+  const { 
+    data = [], 
+    isLoading: loading, 
+    isError, 
+    error: queryError,
+    refetch,
+    isRefetching
+  } = useProjectData({
+    projectName,
+    sheetUrl,
+    headerRow,
+    dataStartRow,
+    dataEndRow,
+    requiredFields,
+    headerMatrix
+  });
+
+  const error = isError ? (queryError?.message || 'Không thể tải dữ liệu tài liệu.') : null;
 
   useEffect(() => {
     if (initialSearchTerm) {
       setSearchTerm(initialSearchTerm);
     }
   }, [initialSearchTerm]);
-
-  useEffect(() => {
-    if (initialData && initialData.length > 0) {
-      setData(initialData);
-      setLoading(false);
-      return;
-    }
-
-    if (initialLoading !== undefined) {
-      setLoading(initialLoading);
-      if (initialLoading) return;
-    }
-
-    async function loadDocs() {
-      try {
-        setLoading(true);
-        // Prioritize MASTER_SHEET_URL if projectName is provided
-        const sourceUrl = projectName ? MASTER_SHEET_URL : (sheetUrl || '');
-        
-        if (!sourceUrl) {
-          setError('Không có đường dẫn dữ liệu tài liệu.');
-          setLoading(false);
-          return;
-        }
-
-        let result: any[];
-        // Always use standard header config for Master Sheet
-        if (projectName) {
-          result = await fetchConfiguredSheetData<any>(MASTER_SHEET_URL, 1, 2, 0);
-        } else if (headerRow !== undefined && dataStartRow !== undefined) {
-          result = await fetchConfiguredSheetData<any>(sourceUrl, headerRow, dataStartRow, dataEndRow || 0, requiredFields, headerMatrix);
-        } else {
-          // Fallback to old method if config is missing
-          const { fetchSheetData } = await import('../services/googleSheets');
-          result = await fetchSheetData<any>(sourceUrl);
-        }
-        setData(result);
-      } catch (err) {
-        console.error('Failed to load docs:', err);
-        setError('Không thể tải dữ liệu tài liệu.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDocs();
-  }, [sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, headerMatrix, projectName, initialData, initialLoading]);
 
   const removeAccents = (str: string) => {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
@@ -166,9 +135,19 @@ export default function DocsTab({
 
   if (loading) {
     return (
-      <div className="flex flex-col justify-center items-center py-24">
-        <Loader2 className="h-10 w-10 animate-spin text-[#d99b28] mb-4" />
-        <p className="text-gray-500 font-medium">Đang truy xuất tài liệu từ Master Sheet...</p>
+      <div className="space-y-10 max-w-7xl mx-auto pb-12">
+        <div className="text-center mb-10 space-y-4">
+          <Skeleton className="h-10 w-64 mx-auto" />
+          <Skeleton className="h-4 w-96 mx-auto" />
+        </div>
+        <div className="max-w-2xl mx-auto">
+          <Skeleton className="h-14 w-full rounded-2xl" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -198,6 +177,14 @@ export default function DocsTab({
         <h2 className="text-3xl font-bold text-primary uppercase inline-block relative pb-3 font-display">
           TÀI LIỆU THEO MÃ CĂN
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-accent"></div>
+          <button 
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="absolute -right-12 top-0 p-2 bg-white border border-gray-100 text-primary rounded-xl hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw className={`w-3 h-3 ${isRefetching ? 'animate-spin' : ''}`} />
+          </button>
         </h2>
         <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
           Tra cứu nhanh tài liệu pháp lý, thiết kế và thông tin chi tiết cho từng mã căn hộ.

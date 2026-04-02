@@ -479,7 +479,7 @@ export default function ProjectsPage() {
                     {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
                   </button>
                   <button
-                    onClick={handleGlobalUnitSearch}
+                    onClick={() => handleGlobalUnitSearch()}
                     disabled={isSearchingUnits}
                     className="px-6 py-3 sm:py-2 bg-gradient-gold text-white rounded-xl text-sm font-display font-bold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, ChevronRight, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User, Copy, Share2, Phone, MessageSquare } from 'lucide-react';
+import { Loader2, Search, Filter, X, Heart, CheckCircle2, ArrowUpDown, Scale, Database, ArrowRightLeft, ChevronUp, ChevronDown, ChevronRight, Layers, Info, Trash2, ExternalLink, MapPin, Home, Tag, User, Copy, Share2, Phone, MessageSquare, RefreshCw } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { STANDARD_HEADERS, MASTER_SHEET_URL } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDebounce } from '../hooks/useDebounce';
+import { useProjectData } from '../hooks/useProjectData';
+import { Skeleton } from './ui/Skeleton';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface UnitDataTabProps {
   sheetUrl: string;
@@ -44,11 +47,22 @@ export default function UnitDataTab({
   initialData,
   initialLoading
 }: UnitDataTabProps) {
-  const [data, setData] = useState<any[]>(initialData || []);
-  const [loading, setLoading] = useState(initialLoading !== undefined ? initialLoading : true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: fetchedData = [], isLoading: queryLoading, error: queryError, refetch } = useProjectData({
+    sheetUrl,
+    headerRow: headerRow || 1,
+    dataStartRow: dataStartRow || 2,
+    dataEndRow: dataEndRow || 0,
+    requiredFields,
+    headerMatrix,
+    projectName,
+    projectId
+  });
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<Record<string, string>>(initialFilters);
+  const [filters, setFilters] = useState<Record<string, string[]>>(
+    Object.entries(initialFilters).reduce((acc, [k, v]) => ({ ...acc, [k]: [v] }), {})
+  );
   const [groupBy, setGroupBy] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -62,6 +76,10 @@ export default function UnitDataTab({
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  const data = useMemo(() => fetchedData, [fetchedData]);
+  const loading = queryLoading;
+  const error = queryError ? (queryError as Error).message : null;
 
   useEffect(() => {
     const fetchLikedUnits = async () => {
@@ -249,7 +267,8 @@ export default function UnitDataTab({
   }, [data, projectName]);
 
   useEffect(() => {
-    setFilters(initialFilters);
+    const multiFilters = Object.entries(initialFilters).reduce((acc, [k, v]) => ({ ...acc, [k]: [v] }), {});
+    setFilters(multiFilters);
     if (Object.keys(initialFilters).length > 0) setIsFilterOpen(true);
   }, [initialFilters]);
 
@@ -281,55 +300,18 @@ export default function UnitDataTab({
       const { url, cacheKey } = event.detail;
       const sourceUrl = projectName ? MASTER_SHEET_URL : (sheetUrl || '');
       if (url.includes(sourceUrl) || cacheKey.includes(sourceUrl)) {
-        console.log('Data revalidated, updating state:', sourceUrl);
-        // Re-fetch from cache (which is now updated)
-        fetchConfiguredSheetData<any>(sourceUrl, headerRow || 1, dataStartRow || 2, dataEndRow || 0, requiredFields, headerMatrix)
-          .then(newData => {
-            if (JSON.stringify(newData) !== JSON.stringify(data)) {
-              setData(newData);
-            }
-          });
+        console.log('Data revalidated, refetching:', sourceUrl);
+        refetch();
       }
     };
 
     window.addEventListener('data-revalidated', handleRevalidation);
     return () => window.removeEventListener('data-revalidated', handleRevalidation);
-  }, [projectName, sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, headerMatrix, data]);
+  }, [projectName, sheetUrl, refetch]);
 
   useEffect(() => {
-    async function loadUnitData() {
-      try {
-        setLoading(true);
-        // Prioritize MASTER_SHEET_URL if projectName is provided
-        const sourceUrl = projectName ? MASTER_SHEET_URL : (sheetUrl || '');
-        
-        if (!sourceUrl) {
-          setError('Không có đường dẫn dữ liệu quỹ căn.');
-          setLoading(false);
-          return;
-        }
-
-        let result: any[];
-        // Always use standard header config for Master Sheet
-        if (projectName) {
-          result = await fetchConfiguredSheetData<any>(MASTER_SHEET_URL, 1, 2, 0);
-        } else if (headerRow !== undefined && dataStartRow !== undefined) {
-          result = await fetchConfiguredSheetData<any>(sourceUrl, headerRow, dataStartRow, dataEndRow || 0, requiredFields, headerMatrix);
-        } else {
-          // Fallback to old method if config is missing
-          const { fetchSheetData } = await import('../services/googleSheets');
-          result = await fetchSheetData<any>(sourceUrl);
-        }
-        setData(result);
-      } catch (err) {
-        console.error('Failed to load unit data:', err);
-        setError('Không thể tải dữ liệu quỹ căn.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadUnitData();
-  }, [sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, projectName]);
+    // Old loadUnitData logic removed as we use useProjectData hook
+  }, []);
 
   useEffect(() => {
     if (processedData.length > 0) {
@@ -379,12 +361,17 @@ export default function UnitDataTab({
         if (!matchesSearch) return false;
       }
 
-      for (const [key, value] of Object.entries(filters)) {
-        if (value) {
+      for (const [key, values] of Object.entries(filters)) {
+        if (values && values.length > 0) {
           const actualKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase()) || key;
           const itemValue = removeAccents(String(item[actualKey] || '').toLowerCase().trim());
-          const filterValue = removeAccents(String(value).toLowerCase().trim());
-          if (itemValue !== filterValue) return false;
+          
+          const matches = values.some(val => {
+            const filterValue = removeAccents(String(val).toLowerCase().trim());
+            return itemValue === filterValue;
+          });
+          
+          if (!matches) return false;
         }
       }
 
@@ -465,6 +452,22 @@ export default function UnitDataTab({
     });
   };
 
+  const toggleFilter = (key: string, value: string) => {
+    setFilters(prev => {
+      const currentValues = prev[key] || [];
+      if (currentValues.includes(value)) {
+        const newValues = currentValues.filter(v => v !== value);
+        if (newValues.length === 0) {
+          const { [key]: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [key]: newValues };
+      } else {
+        return { ...prev, [key]: [...currentValues, value] };
+      }
+    });
+  };
+
   const clearFilters = () => {
     setFilters({});
     setSearchTerm('');
@@ -509,19 +512,19 @@ export default function UnitDataTab({
 
   if (loading) return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 animate-pulse">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-3">
-          <div className="h-10 w-64 bg-gray-200 rounded-2xl"></div>
-          <div className="h-4 w-32 bg-gray-100 rounded-full"></div>
+          <Skeleton className="h-10 w-64 rounded-2xl" />
+          <Skeleton className="h-4 w-32 rounded-full" />
         </div>
         <div className="flex gap-3">
-          <div className="h-12 w-32 bg-gray-200 rounded-2xl"></div>
-          <div className="h-12 w-48 bg-gray-200 rounded-2xl"></div>
+          <Skeleton className="h-12 w-32 rounded-2xl" />
+          <Skeleton className="h-12 w-48 rounded-2xl" />
         </div>
       </div>
       <div className="grid grid-cols-1 gap-6">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-32 bg-gray-50 rounded-[2rem] animate-pulse border border-gray-100"></div>
+          <Skeleton key={i} className="h-32 rounded-[2rem] border border-gray-100" />
         ))}
       </div>
     </div>
@@ -555,8 +558,17 @@ export default function UnitDataTab({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <div className="flex items-center bg-white rounded-2xl p-1 border border-gray-100 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <button 
+              onClick={() => refetch()}
+              className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-2xl bg-white text-primary border border-gray-100 hover:bg-gray-50 transition-all shadow-sm font-display"
+              title="Làm mới dữ liệu"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+
+            <div className="flex items-center bg-white rounded-2xl p-1 border border-gray-100 shadow-sm">
             {[
               { label: 'DT', key: 'DT', icon: <Scale className="w-3.5 h-3.5" /> },
               { label: 'Giá', key: 'Giá', icon: <Database className="w-3.5 h-3.5" /> },
@@ -598,194 +610,131 @@ export default function UnitDataTab({
         </div>
       </div>
 
-      {/* Active Filter Tags */}
-      <AnimatePresence>
-        {activeFiltersCount > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex flex-wrap items-center gap-2 pb-2"
-          >
-            {debouncedSearchTerm && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[9px] font-bold border border-gray-100 shadow-sm font-display">
-                <span className="text-gray-400">Từ khóa:</span>
-                <span>{debouncedSearchTerm}</span>
-                <button onClick={() => setSearchTerm('')} className="hover:text-accent transition-colors"><X className="w-3 h-3" /></button>
-              </div>
+      {/* Smart Search & Compact Filters */}
+      <div className="space-y-4">
+        <div className="relative group max-w-2xl mx-auto">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-accent transition-colors" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm thông minh (Mã căn, Phân khu, Loại hình...)"
+              className="w-full pl-12 pr-12 py-4 bg-white border border-gray-100 rounded-[1.5rem] text-sm shadow-xl shadow-primary/5 focus:ring-4 focus:ring-accent/10 transition-all outline-none font-sans"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-accent transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
-            {Object.entries(filters).map(([key, value]) => (
-              <div key={key} className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[10px] font-bold border border-gray-100 shadow-sm font-display">
-                <span className="text-gray-400">{key}:</span>
-                <span>{value}</span>
-                <button onClick={() => removeFilter(key)} className="hover:text-accent transition-colors"><X className="w-3 h-3" /></button>
-              </div>
-            ))}
-            {(priceRange.min !== 0 || priceRange.max !== 500000) && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[10px] font-bold border border-gray-100 shadow-sm font-display">
-                <span className="text-gray-400">Giá:</span>
-                <span>{priceRange.min} - {priceRange.max} tỷ</span>
-                <button onClick={() => setPriceRange({ min: 0, max: 500000 })} className="hover:text-accent transition-colors"><X className="w-3 h-3" /></button>
-              </div>
-            )}
-            {(areaRange.min !== 0 || areaRange.max !== 1000) && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white text-primary rounded-xl text-[10px] font-bold border border-gray-100 shadow-sm font-display">
-                <span className="text-gray-400">DT:</span>
-                <span>{areaRange.min} - {areaRange.max} m²</span>
-                <button onClick={() => setAreaRange({ min: 0, max: 1000 })} className="hover:text-accent transition-colors"><X className="w-3 h-3" /></button>
-              </div>
-            )}
-            
-            <button 
-              onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black text-accent uppercase tracking-widest hover:bg-accent/10 rounded-xl transition-all font-display"
-            >
-              <Trash2 className="w-3 h-3" /> Xóa tất cả
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      {/* Search & Filter Panel */}
+          {/* Smart Suggestions */}
+          {searchTerm && searchTerm.length >= 2 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2">
+              <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Gợi ý tìm kiếm</div>
+              {Array.from(new Set(
+                processedData.flatMap(item => 
+                  Object.values(item).map(v => String(v))
+                ).filter(v => v.toLowerCase().includes(searchTerm.toLowerCase()) && v.length < 30)
+              )).slice(0, 8).map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSearchTerm(suggestion)}
+                  className="w-full text-left px-4 py-2.5 hover:bg-accent/5 rounded-xl text-sm font-medium text-primary transition-colors flex items-center gap-3"
+                >
+                  <Search className="w-3.5 h-3.5 text-gray-300" />
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Compact Filter Pills */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button 
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm font-display ${
+              isFilterOpen ? 'bg-accent text-white' : 'bg-white text-primary border border-gray-100 hover:bg-gray-50'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Bộ lọc nâng cao
+            {activeFiltersCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-md text-[9px]">{activeFiltersCount}</span>
+            )}
+          </button>
+          
+          {/* Quick Filters */}
+          {['Phân khu', 'Loại hình', 'Hướng'].map(col => (
+            <div key={col} className="relative group/filter">
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary hover:border-accent/30 transition-all shadow-sm font-display">
+                {col}
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              </button>
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-2xl z-40 hidden group-hover/filter:block animate-in fade-in zoom-in-95 p-2">
+                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                  {filterOptions[col]?.slice(0, 15).map(opt => (
+                    <label key={opt} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/5 rounded-xl cursor-pointer transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="accent-accent rounded-sm"
+                        checked={filters[col]?.includes(opt) || false}
+                        onChange={() => toggleFilter(col, opt)}
+                      />
+                      <span className="text-xs font-medium text-primary truncate">{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Advanced Filter Panel (Compact) */}
       <AnimatePresence>
         {isFilterOpen && (
           <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="z-20"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
           >
-            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-2xl space-y-6 relative overflow-hidden">
-              {/* Decorative background element */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                {/* Căn hộ */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Tìm kiếm mã căn</label>
-                  <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-accent transition-colors" />
-                    <input
-                      type="text"
-                      placeholder="Nhập mã căn..."
-                      className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white transition-all outline-none font-sans"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Phân khu */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Phân khu</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
-                      value={filters['Phân khu'] || ''}
-                      onChange={(e) => setFilters({...filters, 'Phân khu': e.target.value})}
-                    >
-                      <option value="">Tất cả phân khu</option>
-                      {filterOptions['Phân khu']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Loại hình */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Loại hình</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
-                      value={filters['Loại hình'] || ''}
-                      onChange={(e) => setFilters({...filters, 'Loại hình': e.target.value})}
-                    >
-                      <option value="">Tất cả loại hình</option>
-                      {filterOptions['Loại hình']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Hướng */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Hướng</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
-                      value={filters['Hướng'] || ''}
-                      onChange={(e) => setFilters({...filters, 'Hướng': e.target.value})}
-                    >
-                      <option value="">Tất cả hướng</option>
-                      {filterOptions['Hướng']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Quỹ bán */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Quỹ bán</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
-                      value={filters['Quỹ'] || ''}
-                      onChange={(e) => setFilters({...filters, 'Quỹ': e.target.value})}
-                    >
-                      <option value="">Tất cả quỹ</option>
-                      {filterOptions['Quỹ']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Khoảng giá */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Khoảng giá (tỷ)</label>
-                  <div className="flex gap-2">
-                    <input type="number" placeholder="Từ" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={priceRange.min} onChange={(e) => setPriceRange({...priceRange, min: e.target.value === '' ? '' : Number(e.target.value)})} />
-                    <input type="number" placeholder="Đến" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={priceRange.max} onChange={(e) => setPriceRange({...priceRange, max: e.target.value === '' ? '' : Number(e.target.value)})} />
-                  </div>
-                </div>
-
-                {/* Diện tích đất */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Diện tích đất (m2)</label>
-                  <div className="flex gap-2">
-                    <input type="number" placeholder="Từ" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={areaRange.min} onChange={(e) => setAreaRange({...areaRange, min: e.target.value === '' ? '' : Number(e.target.value)})} />
-                    <input type="number" placeholder="Đến" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={areaRange.max} onChange={(e) => setAreaRange({...areaRange, max: e.target.value === '' ? '' : Number(e.target.value)})} />
-                  </div>
-                </div>
-
-                {/* Tên ĐL Filter */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Tên ĐL</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:bg-white appearance-none cursor-pointer font-medium outline-none font-sans"
-                      value={filters['TÊN ĐL'] || ''}
-                      onChange={(e) => setFilters({...filters, 'TÊN ĐL': e.target.value})}
-                    >
-                      <option value="">Tất cả đại lý</option>
-                      {filterOptions['TÊN ĐL']?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Range Filters */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Khoảng giá (tỷ)</label>
+                <div className="flex gap-2">
+                  <input type="number" placeholder="Từ" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={priceRange.min} onChange={(e) => setPriceRange({...priceRange, min: e.target.value === '' ? '' : Number(e.target.value)})} />
+                  <input type="number" placeholder="Đến" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={priceRange.max} onChange={(e) => setPriceRange({...priceRange, max: e.target.value === '' ? '' : Number(e.target.value)})} />
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Diện tích (m2)</label>
+                <div className="flex gap-2">
+                  <input type="number" placeholder="Từ" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={areaRange.min} onChange={(e) => setAreaRange({...areaRange, min: e.target.value === '' ? '' : Number(e.target.value)})} />
+                  <input type="number" placeholder="Đến" className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans" value={areaRange.max} onChange={(e) => setAreaRange({...areaRange, max: e.target.value === '' ? '' : Number(e.target.value)})} />
+                </div>
+              </div>
+
+              <div className="flex items-end gap-3">
                 <button 
-                  onClick={clearFilters} 
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-black text-gray-400 hover:text-accent transition-colors uppercase tracking-widest font-display"
+                  onClick={clearFilters}
+                  className="flex-1 py-3 text-[10px] font-black text-gray-400 hover:text-accent uppercase tracking-widest font-display transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" /> Làm mới
+                  Xóa bộ lọc
                 </button>
                 <button 
                   onClick={() => setIsFilterOpen(false)}
-                  className="w-full sm:w-auto px-8 py-3 bg-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all shadow-lg shadow-primary/10 flex items-center justify-center gap-2 font-display"
+                  className="flex-[2] py-3 bg-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-accent transition-all shadow-lg shadow-primary/10 font-display"
                 >
-                  Áp dụng <CheckCircle2 className="w-4 h-4" />
+                  Áp dụng
                 </button>
               </div>
             </div>

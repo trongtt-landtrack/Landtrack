@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { fetchConfiguredSheetData } from '../services/googleSheets';
-import { Loader2, LayoutGrid, Home, Tag, BarChart2, PieChart, Layers, Database, ArrowRight, Info, Users, ExternalLink } from 'lucide-react';
-import { STANDARD_HEADERS, MASTER_SHEET_URL } from '../constants';
+import { useMemo } from 'react';
+import { LayoutGrid, Home, Tag, BarChart2, PieChart, Layers, Database, ArrowRight, Info, Users, ExternalLink, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Agent } from '../types';
+import { useProjectData } from '../hooks/useProjectData';
+import { Skeleton } from './ui/Skeleton';
 
 interface DashboardTabProps {
   sheetUrl: string;
@@ -33,58 +33,26 @@ export default function DashboardTab({
   projectName,
   agents = [],
   onNavigate,
-  initialData,
-  initialLoading
+  initialData
 }: DashboardTabProps) {
-  const [data, setData] = useState<any[]>(initialData || []);
-  const [loading, setLoading] = useState(initialLoading !== undefined ? initialLoading : true);
-  const [error, setError] = useState<string | null>(null);
+  const { 
+    data = [], 
+    isLoading: loading, 
+    isError, 
+    error: queryError,
+    refetch,
+    isRefetching
+  } = useProjectData({
+    projectName,
+    sheetUrl,
+    headerRow,
+    dataStartRow,
+    dataEndRow,
+    requiredFields,
+    headerMatrix
+  });
 
-  useEffect(() => {
-    if (initialData && initialData.length > 0) {
-      setData(initialData);
-      setLoading(false);
-      return;
-    }
-
-    if (initialLoading !== undefined) {
-      setLoading(initialLoading);
-      if (initialLoading) return;
-    }
-
-    async function loadData() {
-      try {
-        setLoading(true);
-        // Prioritize MASTER_SHEET_URL if projectName is provided
-        const sourceUrl = projectName ? MASTER_SHEET_URL : (sheetUrl || '');
-        
-        if (!sourceUrl) {
-          setError('Không có đường dẫn dữ liệu.');
-          setLoading(false);
-          return;
-        }
-
-        let result: any[];
-        // Always use standard header config for Master Sheet
-        if (projectName) {
-          result = await fetchConfiguredSheetData<any>(MASTER_SHEET_URL, 1, 2, 0);
-        } else if (headerRow !== undefined && dataStartRow !== undefined) {
-          result = await fetchConfiguredSheetData<any>(sourceUrl, headerRow, dataStartRow, dataEndRow || 0, requiredFields, headerMatrix);
-        } else {
-          // Fallback to old method if config is missing
-          const { fetchSheetData } = await import('../services/googleSheets');
-          result = await fetchSheetData<any>(sourceUrl);
-        }
-        setData(result);
-      } catch (err) {
-        console.error('Failed to load data:', err);
-        setError('Không thể tải dữ liệu thống kê.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, [sheetUrl, headerRow, dataStartRow, dataEndRow, requiredFields, headerMatrix, projectName]);
+  const error = isError ? (queryError?.message || 'Không thể tải dữ liệu thống kê.') : null;
 
   const removeAccents = (str: string) => {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
@@ -189,10 +157,31 @@ export default function DashboardTab({
   );
 
   if (loading) return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <Loader2 className="h-10 w-10 animate-spin text-accent mb-4" />
-        <p className="text-primary/50 font-medium font-sans">Đang tổng hợp dữ liệu dự án...</p>
-      </div>
+    <div className="space-y-12 max-w-7xl mx-auto pb-12">
+      <section className="bg-white rounded-[3rem] border border-primary/10 shadow-xl overflow-hidden">
+        <div className="p-8 border-b border-primary/5 flex items-center justify-between bg-accent/5">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-14 h-14 rounded-2xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
   
   if (error) return (
@@ -226,6 +215,14 @@ export default function DashboardTab({
               </p>
             </div>
           </div>
+          <button 
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="p-3 bg-white border border-gray-100 text-primary rounded-xl hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
