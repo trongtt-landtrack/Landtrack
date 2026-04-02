@@ -897,7 +897,8 @@ export default function UnitDataTab({
                           </div>
 
                           {columns.map((col) => {
-                            const val = row[col] || '-';
+                            const rawVal = row[col];
+                            const val = (String(rawVal || '').toLowerCase() === 'n/a') ? '' : (rawVal || '-');
                             const lowerCol = col.toLowerCase();
                             const isStatus = lowerCol.includes('tình trạng') || lowerCol.includes('trạng thái');
                             const isCode = lowerCol.includes('mã');
@@ -999,20 +1000,26 @@ export default function UnitDataTab({
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest font-display">{row['Phân khu'] || 'Dự án'}</span>
                           </div>
                         </div>
-                        <div className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${getStatusColor(status)}`}>
-                          {status || 'N/A'}
-                        </div>
+                        {status && status.toLowerCase() !== 'n/a' && (
+                          <div className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${getStatusColor(status)}`}>
+                            {status}
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
-                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Giá gồm VAT</span>
-                          <p className="text-xs font-black text-accent font-display truncate">{price}</p>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
-                          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Diện tích</span>
-                          <p className="text-xs font-black text-primary font-display truncate">{area} m²</p>
-                        </div>
+                        {price && String(price).toLowerCase() !== 'n/a' && (
+                          <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Giá gồm VAT</span>
+                            <p className="text-xs font-black text-accent font-display truncate">{price}</p>
+                          </div>
+                        )}
+                        {area && String(area).toLowerCase() !== 'n/a' && (
+                          <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100/50">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1 font-display">Diện tích</span>
+                            <p className="text-xs font-black text-primary font-display truncate">{area} m²</p>
+                          </div>
+                        )}
                       </div>
 
                       <AnimatePresence>
@@ -1047,7 +1054,8 @@ export default function UnitDataTab({
                                     key.trim() !== '' && 
                                     key.length <= 60 && 
                                     !HIDDEN_COLUMNS.includes(key) &&
-                                    !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
+                                    !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key) &&
+                                    String(row[key] || '').toLowerCase() !== 'n/a'
                                   )
                                   .map(key => (
                                     <div key={key} className="flex justify-between items-center py-1 border-b border-gray-50/50">
@@ -1168,8 +1176,8 @@ export default function UnitDataTab({
               onClick={e => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="relative p-8 lg:p-12 border-b border-gray-50 bg-gray-50/30 h-[150px]">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-[750px]">
+              <div className="relative p-8 lg:p-12 border-b border-gray-50 bg-gray-50/30 min-h-[150px] flex items-center">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-full max-w-[750px]">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <span className="px-3 py-1 rounded-full bg-accent text-white text-[10px] font-black uppercase tracking-widest font-display">
@@ -1207,44 +1215,52 @@ export default function UnitDataTab({
               </div>
               
               {/* Modal Body */}
-              <div className="p-8 lg:p-12 overflow-y-auto custom-scrollbar w-[893.867px] h-[400px]">
+              <div className="p-8 lg:p-12 overflow-y-auto custom-scrollbar w-full max-w-[893.867px] max-h-[60vh] lg:h-[400px]">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-                  <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
-                      <Scale className="w-6 h-6" />
+                  {selectedUnit['Diện tích đất'] || selectedUnit['DT đất'] || selectedUnit['Diện tích'] ? (
+                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
+                        <Scale className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Diện tích</p>
+                        <p className="text-lg font-black text-primary font-sans">{selectedUnit['Diện tích đất'] || selectedUnit['DT đất'] || selectedUnit['Diện tích']} m²</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Diện tích</p>
-                      <p className="text-lg font-black text-primary font-sans">{selectedUnit['Diện tích đất'] || selectedUnit['DT đất'] || selectedUnit['Diện tích'] || '-'} m²</p>
+                  ) : null}
+                  {selectedUnit['Hướng'] && String(selectedUnit['Hướng']).toLowerCase() !== 'n/a' ? (
+                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
+                        <ArrowRightLeft className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Hướng</p>
+                        <p className="text-lg font-black text-primary font-sans">{selectedUnit['Hướng']}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
-                      <ArrowRightLeft className="w-6 h-6" />
+                  ) : null}
+                  {selectedUnit['Loại hình'] && String(selectedUnit['Loại hình']).toLowerCase() !== 'n/a' ? (
+                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
+                        <Home className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Loại hình</p>
+                        <p className="text-lg font-black text-primary font-sans">{selectedUnit['Loại hình']}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Hướng</p>
-                      <p className="text-lg font-black text-primary font-sans">{selectedUnit['Hướng'] || '-'}</p>
+                  ) : null}
+                  {renderAgentValue(selectedUnit['TÊN ĐL'] || selectedUnit['ĐL']) ? (
+                    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
+                        <User className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Đại lý</p>
+                        <p className="text-lg font-black text-primary font-sans">{renderAgentValue(selectedUnit['TÊN ĐL'] || selectedUnit['ĐL'])}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
-                      <Home className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Loại hình</p>
-                      <p className="text-lg font-black text-primary font-sans">{selectedUnit['Loại hình'] || '-'}</p>
-                    </div>
-                  </div>
-                  <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-accent">
-                      <User className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 font-display">Đại lý</p>
-                      <p className="text-lg font-black text-primary font-sans">{renderAgentValue(selectedUnit['TÊN ĐL'] || selectedUnit['ĐL'])}</p>
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
 
                 <div className="space-y-8">
@@ -1259,7 +1275,8 @@ export default function UnitDataTab({
                         key.trim() !== '' && 
                         key.length <= 60 && 
                         !HIDDEN_COLUMNS.includes(key) &&
-                        !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key)
+                        !['Mã căn', 'Mã SP', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'Tổng giá', 'Diện tích đất', 'DT đất', 'Diện tích', 'Hướng', 'Loại hình', 'Tình trạng', 'Trạng thái', 'Phân khu', 'TÊN ĐL', 'ĐL'].includes(key) &&
+                        String(selectedUnit[key] || '').toLowerCase() !== 'n/a'
                       )
                       .map(key => (
                         <div key={key} className="group">
