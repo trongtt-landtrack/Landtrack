@@ -20,6 +20,70 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const fetchPermissions = async () => {
     setLoading(true);
+    
+    const fallbackPermissions: PermissionsMap = {
+      'super_admin': {
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'project:view': true, 'project:create': true, 'project:edit': true, 'project:delete': true, 'project:sync': true, 'project_detail:view': true,
+        'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
+        'pricing:view': true, 'pricing:export': true,
+        'user:view': true, 'user:edit': true, 'user:delete': true,
+        'setting:view': true, 'setting:edit': true,
+        'profile:edit': true, 'favorite:add_remove': true,
+        'admin:system_data:view': true, 'admin:system_data:sync': true, 'admin:allowed_phones:view': true, 'admin:allowed_phones:edit': true
+      },
+      'project_director': {
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
+        'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
+        'pricing:view': true, 'pricing:export': true,
+        'user:view': true, 'user:edit': true, 'user:delete': true,
+        'setting:view': false, 'setting:edit': false,
+        'profile:edit': true, 'favorite:add_remove': true,
+        'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
+      },
+      'admin': {
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
+        'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
+        'pricing:view': false, 'pricing:export': false,
+        'user:view': true, 'user:edit': false, 'user:delete': false,
+        'setting:view': false, 'setting:edit': false,
+        'profile:edit': true, 'favorite:add_remove': true,
+        'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
+      },
+      'user': {
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': false, 'nav:profile': true, 'nav:favorites': true,
+        'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
+        'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
+        'pricing:view': false, 'pricing:export': false,
+        'user:view': true, 'user:edit': false, 'user:delete': false,
+        'setting:view': false, 'setting:edit': false,
+        'profile:edit': true, 'favorite:add_remove': true,
+        'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
+      },
+      'guest': {
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
+        'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
+        'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
+        'pricing:view': false, 'pricing:export': false,
+        'user:view': false, 'user:edit': false, 'user:delete': false,
+        'setting:view': false, 'setting:edit': false,
+        'profile:edit': false, 'favorite:add_remove': false,
+        'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
+      },
+      'banner': { // Banned user
+        'nav:dashboard': false, 'nav:projects': false, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
+        'project:view': false, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': false,
+        'unit_search:view': false, 'unit_list:view': false, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
+        'pricing:view': false, 'pricing:export': false,
+        'user:view': false, 'user:edit': false, 'user:delete': false,
+        'setting:view': false, 'setting:edit': false,
+        'profile:edit': false, 'favorite:add_remove': false,
+        'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
+      }
+    };
+
     try {
       // Use the provided GAS URL as default, with environment variable override
       const gasUrl = import.meta.env.VITE_PERMISSIONS_GAS_URL || 'https://script.google.com/macros/s/AKfycbycTcTfNRqzwOSRJs8-Ml1JOm2SSav2EKiJ5XhjyWUThP1vAOl2OsgzpRSn_rH7-3K0Vw/exec';
@@ -27,75 +91,17 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (gasUrl) {
         const response = await fetch(gasUrl);
         const data = await response.json();
-        setPermissions(data);
+        if (data && Object.keys(data).length > 0) {
+          setPermissions(data);
+        } else {
+          setPermissions(fallbackPermissions);
+        }
       } else {
-        // Fallback/Mock permissions for development based on Google Sheet screenshot
-        console.warn('GAS URL not set. Using fallback permissions.');
-        setPermissions({
-          'super_admin': {
-            'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
-            'project:view': true, 'project:create': true, 'project:edit': true, 'project:delete': true, 'project:sync': true, 'project_detail:view': true,
-            'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
-            'pricing:view': true, 'pricing:export': true,
-            'user:view': true, 'user:edit': true, 'user:delete': true,
-            'setting:view': true, 'setting:edit': true,
-            'profile:edit': true, 'favorite:add_remove': true,
-            'admin:system_data:view': true, 'admin:system_data:sync': true, 'admin:allowed_phones:view': true, 'admin:allowed_phones:edit': true
-          },
-          'project_director': {
-            'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
-            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
-            'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
-            'pricing:view': true, 'pricing:export': true,
-            'user:view': true, 'user:edit': true, 'user:delete': true,
-            'setting:view': false, 'setting:edit': false,
-            'profile:edit': true, 'favorite:add_remove': true,
-            'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
-          },
-          'admin': {
-            'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
-            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
-            'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
-            'pricing:view': false, 'pricing:export': false,
-            'user:view': true, 'user:edit': false, 'user:delete': false,
-            'setting:view': false, 'setting:edit': false,
-            'profile:edit': true, 'favorite:add_remove': true,
-            'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
-          },
-          'user': {
-            'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': false, 'nav:profile': true, 'nav:favorites': true,
-            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
-            'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
-            'pricing:view': false, 'pricing:export': false,
-            'user:view': true, 'user:edit': false, 'user:delete': false,
-            'setting:view': false, 'setting:edit': false,
-            'profile:edit': true, 'favorite:add_remove': true,
-            'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
-          },
-          'guest': {
-            'nav:dashboard': true, 'nav:projects': true, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
-            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
-            'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
-            'pricing:view': false, 'pricing:export': false,
-            'user:view': false, 'user:edit': false, 'user:delete': false,
-            'setting:view': false, 'setting:edit': false,
-            'profile:edit': false, 'favorite:add_remove': false,
-            'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
-          },
-          'banner': { // Banned user
-            'nav:dashboard': false, 'nav:projects': false, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
-            'project:view': false, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': false,
-            'unit_search:view': false, 'unit_list:view': false, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
-            'pricing:view': false, 'pricing:export': false,
-            'user:view': false, 'user:edit': false, 'user:delete': false,
-            'setting:view': false, 'setting:edit': false,
-            'profile:edit': false, 'favorite:add_remove': false,
-            'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
-          }
-        });
+        setPermissions(fallbackPermissions);
       }
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
+      console.error('Failed to fetch permissions, using fallback:', error);
+      setPermissions(fallbackPermissions);
     } finally {
       setLoading(false);
     }

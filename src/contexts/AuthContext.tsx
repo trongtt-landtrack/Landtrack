@@ -20,6 +20,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setLoading(true); // Ensure loading is true when auth state changes
       setUser(currentUser);
       
       if (currentUser) {
@@ -39,13 +40,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUserRole(data.role || 'user');
             setUserStatus(data.status || 'active');
           } else {
-            setUserRole('guest');
+            // If doc doesn't exist yet (newly registered), default to 'user' 
+            // to avoid being treated as a guest and redirected back to login
+            setUserRole('user');
             setUserStatus('active');
           }
           setLoading(false);
         }, (error) => {
           console.error("Error fetching user role:", error);
-          setUserRole('guest');
+          // On error, default to 'user' if authenticated
+          setUserRole('user');
           setLoading(false);
         });
 

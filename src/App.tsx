@@ -16,15 +16,12 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 
 function Layout() {
-  const { userRole } = useAuth();
+  const { userRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleGlobalClick = (e: React.MouseEvent) => {
-    // If guest, redirect to login on any click
-    if (userRole === 'guest') {
-      // We use capture to catch the click before any other handlers
-      // But we don't necessarily want to preventDefault if it's a link to login
-      // However, since Layout is not used in LoginPage, any click here is on a protected-ish area
+    // If guest and NOT loading, redirect to login on any click
+    if (!authLoading && userRole === 'guest') {
       e.preventDefault();
       e.stopPropagation();
       navigate('/login');
