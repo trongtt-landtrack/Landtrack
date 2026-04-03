@@ -74,7 +74,7 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
           },
           'guest': {
             'nav:dashboard': false, 'nav:projects': false, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
-            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': false,
+            'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
             'unit_search:view': false, 'unit_list:view': false, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
             'pricing:view': false, 'pricing:export': false,
             'user:view': false, 'user:edit': false, 'user:delete': false,

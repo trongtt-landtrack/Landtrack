@@ -1,11 +1,11 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { useNavigate, BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getProjectConfigs } from './services/configService';
 import { ThemeProvider } from './context/ThemeContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import InstallPWA from './components/InstallPWA';
 
@@ -16,8 +16,23 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 
 function Layout() {
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
+
+  const handleGlobalClick = (e: React.MouseEvent) => {
+    // If guest, redirect to login on any click
+    if (userRole === 'guest') {
+      // We use capture to catch the click before any other handlers
+      // But we don't necessarily want to preventDefault if it's a link to login
+      // However, since Layout is not used in LoginPage, any click here is on a protected-ish area
+      e.preventDefault();
+      e.stopPropagation();
+      navigate('/login');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] font-sans">
+    <div className="min-h-screen bg-[var(--bg-app)] font-sans" onClickCapture={handleGlobalClick}>
       <Navbar />
       <main className="pb-20 sm:pb-0">
         <Suspense fallback={<div className="p-8 text-center">Đang tải...</div>}>
