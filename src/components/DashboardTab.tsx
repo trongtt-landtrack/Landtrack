@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutGrid, Home, Tag, BarChart2, PieChart, Layers, Database, ArrowRight, Info, Users, ExternalLink, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Agent } from '../types';
 import { useProjectData } from '../hooks/useProjectData';
 import { Skeleton } from './ui/Skeleton';
+import GuestWarningModal from './GuestWarningModal';
+import { auth } from '../firebase';
 
 interface DashboardTabProps {
   sheetUrl: string;
@@ -35,6 +37,8 @@ export default function DashboardTab({
   onNavigate,
   initialData
 }: DashboardTabProps) {
+  const [showGuestWarning, setShowGuestWarning] = useState(false);
+
   const { 
     data = [], 
     isLoading: loading, 
@@ -135,15 +139,19 @@ export default function DashboardTab({
                 </td>
                 <td className="px-4 py-3 text-right">
                   {agent.link && agent.link.toLowerCase() !== 'n/a' ? (
-                    <a 
-                      href={agent.link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                    <button 
+                      onClick={() => {
+                        if (!auth.currentUser) {
+                          setShowGuestWarning(true);
+                        } else {
+                          window.open(agent.link, '_blank');
+                        }
+                      }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all duration-300 shadow-sm font-display"
                     >
                       CHI TIẾT
                       <ExternalLink className="w-3 h-3" />
-                    </a>
+                    </button>
                   ) : (
                     <span className="text-[9px] font-black text-primary/20 uppercase tracking-widest font-display"></span>
                   )}
@@ -249,6 +257,12 @@ export default function DashboardTab({
           </p>
         </div>
       </motion.section>
+
+      {/* Guest Warning Modal */}
+      <GuestWarningModal 
+        isOpen={showGuestWarning} 
+        onClose={() => setShowGuestWarning(false)} 
+      />
     </div>
   );
 }

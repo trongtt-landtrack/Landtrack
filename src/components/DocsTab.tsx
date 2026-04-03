@@ -3,6 +3,8 @@ import { FileText, Search, ExternalLink, Info, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProjectData } from '../hooks/useProjectData';
 import { Skeleton } from './ui/Skeleton';
+import GuestWarningModal from './GuestWarningModal';
+import { auth } from '../firebase';
 
 interface DocsTabProps {
   sheetUrl: string;
@@ -33,6 +35,7 @@ export default function DocsTab({
   initialData
 }: DocsTabProps) {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [showGuestWarning, setShowGuestWarning] = useState(false);
 
   const { 
     data = [], 
@@ -237,14 +240,18 @@ export default function DocsTab({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {docs.map((doc, idx) => (
-                    <motion.a 
+                    <motion.button 
                       key={`${doc.unitCode}-${idx}`}
-                      href={doc.link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (!auth.currentUser) {
+                          setShowGuestWarning(true);
+                        } else {
+                          window.open(doc.link, '_blank');
+                        }
+                      }}
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-accent/30 transition-all group"
+                      className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-accent/30 transition-all group w-full text-left"
                     >
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="w-12 h-12 rounded-xl bg-primary text-accent flex items-center justify-center flex-shrink-0 shadow-inner group-hover:bg-accent group-hover:text-white transition-colors">
@@ -260,7 +267,7 @@ export default function DocsTab({
                       <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-accent/10 group-hover:text-accent transition-all flex-shrink-0">
                         <ExternalLink className="w-5 h-5" />
                       </div>
-                    </motion.a>
+                    </motion.button>
                   ))}
                 </div>
               </motion.div>
@@ -305,6 +312,11 @@ export default function DocsTab({
           </div>
         </div>
       </div>
+      {/* Guest Warning Modal */}
+      <GuestWarningModal 
+        isOpen={showGuestWarning} 
+        onClose={() => setShowGuestWarning(false)} 
+      />
     </div>
   );
 }

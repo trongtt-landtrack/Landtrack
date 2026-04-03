@@ -13,12 +13,13 @@ import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { fetchConfiguredSheetData, clearCache } from '../services/googleSheets';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { RequirePermission } from '../contexts/PermissionsContext';
+import { RequirePermission, usePermissions } from '../contexts/PermissionsContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function ProjectsPage() {
   const { user, userRole } = useAuth();
+  const { hasPermission } = usePermissions();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(() => {
     // Khởi tạo từ cache nếu có để tránh màn hình trắng
@@ -62,11 +63,10 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    // Global click handler in Layout will handle guest redirect if needed
     if (userRole !== 'guest') {
       navigate(`/projects/${projectId}`);
     } else {
-      navigate('/login');
+      setShowGuestWarning(true);
     }
   };
 
@@ -75,11 +75,10 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    // Global click handler in Layout will handle guest redirect if needed
     if (userRole !== 'guest') {
       navigate(`/projects/${projectId}?tab=units&unitCode=${unitCode}`);
     } else {
-      navigate('/login');
+      setShowGuestWarning(true);
     }
   };
 
@@ -194,7 +193,7 @@ export default function ProjectsPage() {
   const handleGlobalUnitSearch = useCallback(async (termOverride?: string) => {
     const term = termOverride !== undefined ? termOverride : unitSearchTerm;
     if (userRole === 'guest') {
-      navigate('/login');
+      setShowGuestWarning(true);
       return;
     }
     if (!term && !landAreaMin && !landAreaMax && !constAreaMin && !constAreaMax) {
@@ -367,13 +366,15 @@ export default function ProjectsPage() {
             <LayoutGrid className="w-4 h-4" />
             TÌM DỰ ÁN
           </button>
-          <button 
-            onClick={() => setSearchMode('units')}
-            className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-          >
-            <Home className="w-4 h-4" />
-            TÌM CĂN HỘ (SMART SEARCH)
-          </button>
+          {hasPermission('unit_search:view') && (
+            <button 
+              onClick={() => setSearchMode('units')}
+              className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              <Home className="w-4 h-4" />
+              TÌM CĂN HỘ (SMART SEARCH)
+            </button>
+          )}
           
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">

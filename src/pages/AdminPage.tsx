@@ -9,6 +9,7 @@ import SheetDataViewer from '../components/SheetDataViewer';
 import UserManagement from './admin/UserManagement';
 import AllDataManagement from './admin/AllDataManagement';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../contexts/PermissionsContext';
 import Tabs from '../components/Tabs';
 
 interface AllowedPhone {
@@ -24,6 +25,7 @@ interface AdminPageProps {
 
 export default function AdminPage({ standalone = true }: AdminPageProps) {
   const { userRole } = useAuth();
+  const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState('allowed-phones');
   const [phones, setPhones] = useState<AllowedPhone[]>([]);
   const [newPhone, setNewPhone] = useState('');
@@ -36,6 +38,8 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPhone, setEditPhone] = useState('');
   const [editPosition, setEditPosition] = useState('');
+
+  const canEditPhones = hasPermission('admin:allowed_phones:edit');
 
   useEffect(() => {
     fetchPhones();
@@ -58,6 +62,10 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
   };
 
   const handleUpdatePhone = async (id: string) => {
+    if (!canEditPhones) {
+      alert('Bạn không có quyền thực hiện hành động này.');
+      return;
+    }
     if (!editPhone.trim()) return;
     
     try {
@@ -85,6 +93,10 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
 
   const handleAddPhone = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditPhones) {
+      alert('Bạn không có quyền thực hiện hành động này.');
+      return;
+    }
     if (!newPhone.trim()) return;
 
     setAdding(true);
@@ -122,6 +134,10 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
   };
 
   const handleDeletePhone = async (id: string) => {
+    if (!canEditPhones) {
+      alert('Bạn không có quyền thực hiện hành động này.');
+      return;
+    }
     if (!window.confirm('Bạn có chắc chắn muốn xóa số điện thoại này khỏi danh sách cho phép?')) return;
 
     try {
@@ -170,12 +186,24 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
   };
 
   const ADMIN_TABS = [
-    { id: 'user-management', label: 'Quản lý người dùng', icon: <Users className="w-4 h-4" /> },
-    { id: 'system-data', label: 'Dữ liệu hệ thống', icon: <Database className="w-4 h-4" /> },
-    { id: 'allowed-phones', label: 'Quản lý SĐT cho phép', icon: <Phone className="w-4 h-4" /> },
-    { id: 'permissions-data', label: 'Dữ liệu phân quyền', icon: <Shield className="w-4 h-4" /> },
-    { id: 'log-sync', label: 'Log Sync', icon: <Activity className="w-4 h-4" /> },
-  ];
+    { id: 'user-management', label: 'Quản lý người dùng', icon: <Users className="w-4 h-4" />, permission: 'user:view' },
+    { id: 'system-data', label: 'Dữ liệu hệ thống', icon: <Database className="w-4 h-4" />, permission: 'admin:system_data:view' },
+    { id: 'allowed-phones', label: 'Quản lý SĐT cho phép', icon: <Phone className="w-4 h-4" />, permission: 'admin:allowed_phones:view' },
+    { id: 'permissions-data', label: 'Dữ liệu phân quyền', icon: <Shield className="w-4 h-4" />, permission: 'nav:admin' },
+    { id: 'log-sync', label: 'Log Sync', icon: <Activity className="w-4 h-4" />, permission: 'nav:admin' },
+  ].filter(tab => hasPermission(tab.permission));
+
+  useEffect(() => {
+    // If no tabs are allowed, redirect to home
+    if (!loading && ADMIN_TABS.length === 0) {
+      navigate('/', { replace: true });
+    }
+    
+    // If current tab is not allowed, switch to first allowed tab
+    if (ADMIN_TABS.length > 0 && !ADMIN_TABS.find(t => t.id === activeTab)) {
+      setActiveTab(ADMIN_TABS[0].id);
+    }
+  }, [ADMIN_TABS, activeTab, loading, navigate]);
 
   const filteredPhones = phones.filter(p => 
     p.phone.includes(searchTerm)
@@ -184,56 +212,58 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
   const renderAllowedPhones = () => (
     <div className={`${standalone ? 'max-w-4xl mx-auto py-8' : 'space-y-6'}`}>
       {/* Add New Phone Card */}
-      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 ${standalone ? 'mb-8' : ''}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-gray-900 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-accent" />
-            Thêm số điện thoại mới
-          </h2>
-          <button 
-            onClick={handleCleanDuplicates}
-            className="text-xs text-gray-500 hover:text-accent transition-colors underline"
-          >
-            Dọn dẹp trùng lặp
-          </button>
-        </div>
-        <form onSubmit={handleAddPhone} className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Phone className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
-              <input 
-                type="tel"
-                placeholder="Số điện thoại (VD: 0938...)"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
-                required
-              />
-            </div>
-            <div className="relative flex-1">
-              <Shield className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
-              <input 
-                type="text"
-                placeholder="Chức danh (VD: Quản lý, Giám đốc...)"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
-                value={newPosition}
-                onChange={(e) => setNewPosition(e.target.value)}
-              />
-            </div>
+      {canEditPhones && (
+        <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 ${standalone ? 'mb-8' : ''}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-gray-900 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-accent" />
+              Thêm số điện thoại mới
+            </h2>
             <button 
-              type="submit"
-              disabled={adding}
-              className="px-6 py-3 bg-accent text-white rounded-xl font-display font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 min-w-[120px]"
+              onClick={handleCleanDuplicates}
+              className="text-xs text-gray-500 hover:text-accent transition-colors underline"
             >
-              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Thêm
+              Dọn dẹp trùng lặp
             </button>
           </div>
-        </form>
-        <p className="mt-3 text-xs text-gray-500 italic">
-          * SĐT sẽ được tự động chuẩn hóa về định dạng bắt đầu bằng số 0.
-        </p>
-      </div>
+          <form onSubmit={handleAddPhone} className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                <input 
+                  type="tel"
+                  placeholder="Số điện thoại (VD: 0938...)"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="relative flex-1">
+                <Shield className="absolute left-3 top-3.5 text-gray-400 w-4 h-4" />
+                <input 
+                  type="text"
+                  placeholder="Chức danh (VD: Quản lý, Giám đốc...)"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans text-sm transition-all"
+                  value={newPosition}
+                  onChange={(e) => setNewPosition(e.target.value)}
+                />
+              </div>
+              <button 
+                type="submit"
+                disabled={adding}
+                className="px-6 py-3 bg-accent text-white rounded-xl font-display font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-accent/20 min-w-[120px]"
+              >
+                {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Thêm
+              </button>
+            </div>
+          </form>
+          <p className="mt-3 text-xs text-gray-500 italic">
+            * SĐT sẽ được tự động chuẩn hóa về định dạng bắt đầu bằng số 0.
+          </p>
+        </div>
+      )}
 
       {/* List Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -309,7 +339,7 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
                   </div>
                   
                   <div className="flex items-center gap-1">
-                    {editingId === p.id ? (
+                    {editingId === p.id && canEditPhones ? (
                       <>
                         <button 
                           onClick={() => handleUpdatePhone(p.id)}
@@ -328,24 +358,28 @@ export default function AdminPage({ standalone = true }: AdminPageProps) {
                       </>
                     ) : (
                       <>
-                        <button 
-                          onClick={() => {
-                            setEditingId(p.id);
-                            setEditPhone(p.phone);
-                            setEditPosition(p.position || '');
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeletePhone(p.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canEditPhones && (
+                          <>
+                            <button 
+                              onClick={() => {
+                                setEditingId(p.id);
+                                setEditPhone(p.phone);
+                                setEditPosition(p.position || '');
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeletePhone(p.id)}
+                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Xóa"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

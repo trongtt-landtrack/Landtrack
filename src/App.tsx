@@ -79,7 +79,7 @@ export default function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="admin" element={
-                  <ProtectedRoute actionKey="nav:admin">
+                  <ProtectedRoute>
                     <AdminPage />
                   </ProtectedRoute>
                 } />

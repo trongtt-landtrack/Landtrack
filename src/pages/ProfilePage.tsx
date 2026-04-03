@@ -9,17 +9,7 @@ import { getProjectConfigs } from '../services/configService';
 import { Project, UserRole } from '../types';
 import ProjectCard from '../components/ProjectCard';
 import { useTheme, THEMES, ThemeType } from '../context/ThemeContext';
-
-const isSuperAdmin = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN;
-};
-
-const canManageUsers = (role: UserRole) => {
-  return [
-    UserRole.SUPER_ADMIN,
-    UserRole.PROJECT_DIRECTOR
-  ].includes(role);
-};
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('info');

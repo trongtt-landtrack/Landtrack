@@ -23,7 +23,7 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
     
     const fallbackPermissions: PermissionsMap = {
       'super_admin': {
-        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:settings': true, 'nav:profile': true, 'nav:favorites': true, 'nav:admin': true,
         'project:view': true, 'project:create': true, 'project:edit': true, 'project:delete': true, 'project:sync': true, 'project_detail:view': true,
         'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
         'pricing:view': true, 'pricing:export': true,
@@ -33,7 +33,7 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
         'admin:system_data:view': true, 'admin:system_data:sync': true, 'admin:allowed_phones:view': true, 'admin:allowed_phones:edit': true
       },
       'project_director': {
-        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': false, 'nav:settings': true, 'nav:profile': true, 'nav:favorites': true, 'nav:admin': false,
         'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
         'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
         'pricing:view': true, 'pricing:export': true,
@@ -43,7 +43,7 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
         'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
       },
       'admin': {
-        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': true, 'nav:profile': true, 'nav:favorites': true,
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:settings': true, 'nav:profile': true, 'nav:favorites': true, 'nav:admin': false,
         'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
         'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
         'pricing:view': false, 'pricing:export': false,
@@ -53,17 +53,17 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
         'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
       },
       'user': {
-        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:admin': false, 'nav:profile': true, 'nav:favorites': true,
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': true, 'nav:settings': false, 'nav:profile': true, 'nav:favorites': true, 'nav:admin': false,
         'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
         'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': true, 'unit:view_policy': true, 'unit:lock': true,
         'pricing:view': false, 'pricing:export': false,
         'user:view': true, 'user:edit': false, 'user:delete': false,
         'setting:view': false, 'setting:edit': false,
-        'profile:edit': true, 'favorite:add_remove': true,
+        'profile:edit': false, 'favorite:add_remove': true,
         'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
       },
       'guest': {
-        'nav:dashboard': true, 'nav:projects': true, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
+        'nav:dashboard': true, 'nav:projects': true, 'nav:users': false, 'nav:settings': false, 'nav:profile': false, 'nav:favorites': false, 'nav:admin': false,
         'project:view': true, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': true,
         'unit_search:view': true, 'unit_list:view': true, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
         'pricing:view': false, 'pricing:export': false,
@@ -73,7 +73,7 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
         'admin:system_data:view': false, 'admin:system_data:sync': false, 'admin:allowed_phones:view': false, 'admin:allowed_phones:edit': false
       },
       'banner': { // Banned user
-        'nav:dashboard': false, 'nav:projects': false, 'nav:users': false, 'nav:admin': false, 'nav:profile': false, 'nav:favorites': false,
+        'nav:dashboard': false, 'nav:projects': false, 'nav:users': false, 'nav:settings': false, 'nav:profile': false, 'nav:favorites': false, 'nav:admin': false,
         'project:view': false, 'project:create': false, 'project:edit': false, 'project:delete': false, 'project:sync': false, 'project_detail:view': false,
         'unit_search:view': false, 'unit_list:view': false, 'unit:view_price': false, 'unit:view_policy': false, 'unit:lock': false,
         'pricing:view': false, 'pricing:export': false,
@@ -123,20 +123,6 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Super Admin always has full access
     if (userRole === 'super_admin') return true;
     
-    // Guest specific logic: Allow viewing projects and details
-    // This ensures they can see the app interface before clicking
-    if (userRole === 'guest') {
-      const allowedGuestActions = [
-        'project:view', 
-        'project_detail:view', 
-        'nav:projects', 
-        'nav:dashboard',
-        'unit_search:view',
-        'unit_list:view'
-      ];
-      if (allowedGuestActions.includes(actionKey)) return true;
-    }
-
     // If no role or permissions not loaded, deny by default
     if (!userRole || !permissions[userRole]) return false;
 

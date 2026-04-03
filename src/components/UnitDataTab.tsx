@@ -9,6 +9,8 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useProjectData } from '../hooks/useProjectData';
 import { Skeleton } from './ui/Skeleton';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePermissions } from '../contexts/PermissionsContext';
+import GuestWarningModal from './GuestWarningModal';
 
 interface UnitDataTabProps {
   sheetUrl: string;
@@ -48,6 +50,7 @@ export default function UnitDataTab({
   initialLoading
 }: UnitDataTabProps) {
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
   const { data: fetchedData = [], isLoading: queryLoading, error: queryError, refetch } = useProjectData({
     sheetUrl,
     headerRow: headerRow || 1,
@@ -73,6 +76,7 @@ export default function UnitDataTab({
   const [selectedUnit, setSelectedUnit] = useState<any | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
   const [expandedMobileUnit, setExpandedMobileUnit] = useState<string | null>(null);
+  const [showGuestWarning, setShowGuestWarning] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -133,7 +137,7 @@ export default function UnitDataTab({
   const handleUnitAction = async (unit: any, actionType: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!auth.currentUser) {
-      alert('Vui lòng đăng nhập để thực hiện chức năng này.');
+      setShowGuestWarning(true);
       return;
     }
 
@@ -323,10 +327,15 @@ export default function UnitDataTab({
 
   const columns = useMemo(() => {
     if (processedData.length === 0) return [];
+    
+    const canViewPolicy = hasPermission('unit:view_policy');
+    const policyColumns = ['CSBH', 'Quà tặng', 'Ghi chú', 'Chính sách', 'Ưu đãi'];
+    
     const allKeys = Object.keys(processedData[0]).filter(key => 
       key.trim() !== '' && 
       key.length <= 60 && 
-      !HIDDEN_COLUMNS.includes(key)
+      !HIDDEN_COLUMNS.includes(key) &&
+      (canViewPolicy || !policyColumns.some(p => key.toLowerCase().includes(p.toLowerCase())))
     );
 
     // Sort based on STANDARD_HEADERS order
@@ -852,6 +861,7 @@ export default function UnitDataTab({
                             const isStatus = lowerCol.includes('tình trạng') || lowerCol.includes('trạng thái');
                             const isCode = lowerCol.includes('mã');
                             const isPrice = lowerCol === 'giá gồm vat' || lowerCol === 'giá niêm yết' || lowerCol === 'giá';
+                            const canViewPrice = hasPermission('unit:view_price');
                             const isArea = lowerCol === 'diện tích đất' || lowerCol === 'dt đất';
                             const isAgentName = col === 'TÊN ĐL';
                             const isPTG = col === 'PTG';
@@ -901,7 +911,7 @@ export default function UnitDataTab({
                                     isArea ? 'text-primary font-black' : 
                                     'text-slate-600 font-bold'
                                   }`}>
-                                    {String(val)}
+                                    {isPrice && !canViewPrice ? 'Liên hệ' : String(val)}
                                   </span>
                                 )}
                               </div>
@@ -925,7 +935,8 @@ export default function UnitDataTab({
 
                   const priceCol = Object.keys(row).find(k => k.toLowerCase().includes('giá') && !k.toLowerCase().includes('đơn giá'));
                   const areaCol = Object.keys(row).find(k => k.toLowerCase().includes('diện tích') || k.toLowerCase().includes('dt'));
-                  const price = row[priceCol || ''] || '-';
+                  const canViewPrice = hasPermission('unit:view_price');
+                  const price = canViewPrice ? (row[priceCol || ''] || '-') : 'Liên hệ';
                   const area = row[areaCol || ''] || '-';
 
                   const isExpanded = expandedMobileUnit === unitCode;
@@ -1150,7 +1161,9 @@ export default function UnitDataTab({
                   <div className="flex flex-col items-end gap-2">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">Giá gồm VAT</p>
                     <p className="text-4xl font-black text-accent tracking-tight font-display">
-                      {selectedUnit['Giá gồm VAT'] || selectedUnit['Giá niêm yết'] || selectedUnit['Giá'] || selectedUnit['Tổng giá'] || '-'}
+                      {hasPermission('unit:view_price') 
+                        ? (selectedUnit['Giá gồm VAT'] || selectedUnit['Giá niêm yết'] || selectedUnit['Giá'] || selectedUnit['Tổng giá'] || '-')
+                        : 'Liên hệ'}
                     </p>
                   </div>
                 </div>
@@ -1294,6 +1307,11 @@ export default function UnitDataTab({
           </div>
         )}
       </AnimatePresence>
+      {/* Guest Warning Modal */}
+      <GuestWarningModal 
+        isOpen={showGuestWarning} 
+        onClose={() => setShowGuestWarning(false)} 
+      />
     </div>
   );
 }

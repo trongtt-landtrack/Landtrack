@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X, Users, Database, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -174,7 +174,7 @@ export default function Navbar() {
             </RequirePermission>
             <RequirePermission actionKey="nav:admin">
               <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
-                <LayoutDashboard className="h-5 w-5 text-accent" />
+                <Shield className="h-5 w-5 text-accent" />
                 Quản trị
               </Link>
             </RequirePermission>

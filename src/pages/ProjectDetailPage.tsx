@@ -13,6 +13,7 @@ import { auth, db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import { useUserRole } from '../hooks/useUserRole';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 const TABS = [
   { id: 'overview', label: 'Tổng quan', icon: <BarChart3 className="w-4 h-4" /> },
@@ -25,6 +26,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const { role, loading: roleLoading } = useUserRole();
+  const { hasPermission } = usePermissions();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +174,11 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const filteredTabs = TABS.filter(tab => {
+    if (tab.id === 'units') return hasPermission('unit_list:view');
+    return true;
+  });
+
   return (
     <div className="bg-accent/5 min-h-screen pb-12">
       {/* Breadcrumbs */}
@@ -254,7 +261,7 @@ export default function ProjectDetailPage() {
 
         {/* Tabs */}
         <div className="bg-white rounded-t-2xl shadow-sm border-x border-t border-gray-200 px-4 sm:px-6 pt-2 overflow-x-auto scrollbar-hide">
-          <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+          <Tabs tabs={filteredTabs} activeTab={activeTab} onChange={setActiveTab} />
         </div>
 
         {/* Tab Content */}

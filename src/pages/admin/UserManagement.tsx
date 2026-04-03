@@ -6,8 +6,10 @@ import { Loader2, UserCog, Save, X, RefreshCw, Plus, Trash2, AlertCircle } from 
 import { handleFirestoreError, OperationType } from '../../lib/firestoreError';
 import { fetchSheetData } from '../../services/googleSheets';
 import { cn } from '../../lib/utils';
+import { usePermissions } from '../../contexts/PermissionsContext';
 
 export default function UserManagement() {
+  const { hasPermission } = usePermissions();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -147,13 +149,14 @@ export default function UserManagement() {
   };
 
   const currentUser = users.find(u => u.id === auth.currentUser?.uid);
-  const isSuperAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
+  const canEdit = hasPermission('user:edit');
+  const canDelete = hasPermission('user:delete');
 
   return (
     <div className="space-y-6 font-sans">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-primary font-display">Quản lý hệ thống</h2>
-        {isSuperAdmin && (
+        {hasPermission('admin:system_data:sync') && (
           <div className="flex items-center gap-3">
             <button 
               onClick={handleSyncToSheets}
@@ -194,7 +197,7 @@ export default function UserManagement() {
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Email</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Vai trò</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Trạng thái</th>
-                {isSuperAdmin && <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Hành động</th>}
+                {(canEdit || canDelete) && <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase font-display">Hành động</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -203,7 +206,7 @@ export default function UserManagement() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500 font-sans">{user.email}</td>
                   <td className="px-6 py-4 text-sm">
-                    {editingUserId === user.id && isSuperAdmin ? (
+                    {editingUserId === user.id && canEdit ? (
                       <select 
                         value={editRole || user.role}
                         onChange={(e) => setEditRole(e.target.value as UserRole)}
@@ -220,7 +223,7 @@ export default function UserManagement() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    {editingUserId === user.id && isSuperAdmin ? (
+                    {editingUserId === user.id && canEdit ? (
                       <select 
                         value={editStatus || user.status || 'active'}
                         onChange={(e) => setEditStatus(e.target.value)}
@@ -238,7 +241,7 @@ export default function UserManagement() {
                       </span>
                     )}
                   </td>
-                  {isSuperAdmin && (
+                  {(canEdit || canDelete) && (
                     <td className="px-6 py-4 text-sm">
                       {editingUserId === user.id ? (
                         <div className="flex gap-3">
@@ -259,14 +262,16 @@ export default function UserManagement() {
                         </div>
                       ) : (
                         <div className="flex gap-3">
-                          <button 
-                            onClick={() => { setEditingUserId(user.id); setEditRole(user.role); setEditStatus(user.status || 'active'); }} 
-                            className="text-primary hover:text-accent p-1 hover:bg-primary/5 rounded transition-colors"
-                            title="Sửa"
-                          >
-                            <UserCog className="w-4 h-4" />
-                          </button>
-                          {user.id !== auth.currentUser?.uid && (
+                          {canEdit && (
+                            <button 
+                              onClick={() => { setEditingUserId(user.id); setEditRole(user.role); setEditStatus(user.status || 'active'); }} 
+                              className="text-primary hover:text-accent p-1 hover:bg-primary/5 rounded transition-colors"
+                              title="Sửa"
+                            >
+                              <UserCog className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && user.id !== auth.currentUser?.uid && (
                             <button 
                               onClick={() => handleDeleteUser(user.id, user.name || '')} 
                               className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
