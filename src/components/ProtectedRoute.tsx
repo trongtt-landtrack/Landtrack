@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { auth } from '../firebase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -43,11 +44,38 @@ export default function ProtectedRoute({ children, actionKey }: ProtectedRoutePr
 
   if (actionKey && !hasPermission(actionKey)) {
     // If it's a guest trying to access a protected route, send to login
-    // Otherwise, send to home (they are logged in but lack permission)
     if (userRole === 'guest') {
       return <Navigate to="/login" replace />;
     }
-    return <Navigate to="/" replace />;
+    
+    // Otherwise, show access denied instead of redirecting to / (which causes loops)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Truy cập bị từ chối</h2>
+          <p className="text-gray-600 mb-6">Bạn không có quyền truy cập vào trang này. Vui lòng liên hệ quản trị viên để được cấp quyền.</p>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-accent transition-colors"
+            >
+              Quay lại trang chủ
+            </button>
+            <button 
+              onClick={() => auth.signOut()}
+              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

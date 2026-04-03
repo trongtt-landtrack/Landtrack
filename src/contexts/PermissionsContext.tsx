@@ -92,7 +92,12 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
         const response = await fetch(gasUrl);
         const data = await response.json();
         if (data && Object.keys(data).length > 0) {
-          setPermissions(data);
+          // Merge fallback with fetched data to ensure all roles have at least base permissions
+          const merged: PermissionsMap = { ...fallbackPermissions };
+          Object.keys(data).forEach(role => {
+            merged[role] = { ...(merged[role] || {}), ...data[role] };
+          });
+          setPermissions(merged);
         } else {
           setPermissions(fallbackPermissions);
         }

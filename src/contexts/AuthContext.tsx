@@ -24,8 +24,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(currentUser);
       
       if (currentUser) {
-        // Super Admin check
-        if (currentUser.email === 'tranthetrong91@gmail.com') {
+        // Super Admin check - case insensitive and trimmed
+        const userEmail = currentUser.email?.toLowerCase().trim();
+        if (userEmail === 'tranthetrong91@gmail.com') {
           setUserRole('super_admin');
           setUserStatus('active');
           setLoading(false);
