@@ -55,7 +55,21 @@ LandTrack V2 là nền tảng quản lý và phân phối bất động sản th
 - **Tài liệu (Docs):** Kho lưu trữ tài liệu pháp lý, thiết kế theo từng mã căn.
 - **So sánh căn hộ:** Cho phép chọn tối đa 4 căn hộ để so sánh chi tiết các thông số.
 
-## 7. Hiệu Năng & Tối Ưu (Performance & Optimization)
+## 7. PWA & Cài Đặt App (Progressive Web App)
+- **VitePWA Plugin:** Sử dụng `vite-plugin-pwa` để tạo Service Worker và Manifest tự động, biến web app thành một ứng dụng có thể cài đặt.
+- **Manifest Configuration:**
+  - `theme_color` và `background_color` được thiết lập là `#0f172a` (màu xanh đen đậm) để đồng bộ với màu nền logo, tránh viền trắng khi cài đặt trên Android.
+  - Icons sử dụng thuộc tính `purpose: 'any maskable'` để hệ điều hành (như Android) có thể tự động cắt xén (crop) và phóng to logo tràn viền khung hình (squircle/circle) một cách đẹp mắt.
+  - Sử dụng đường dẫn logo trực tiếp từ Github (`https://raw.githubusercontent.com/...`) để đảm bảo logo luôn khả dụng trên môi trường production (Vercel) ngay cả khi file local không được commit.
+- **Install Prompt Logic (Lời mời cài đặt):**
+  - Component `InstallPWA` lắng nghe sự kiện `beforeinstallprompt` của trình duyệt.
+  - **Kiểm tra trạng thái cài đặt:** Sử dụng `window.matchMedia('(display-mode: standalone)').matches` để kiểm tra xem App đã được cài đặt và đang mở từ màn hình chính hay chưa. Nếu đã cài đặt, lời mời cài đặt sẽ **tự động bị ẩn hoàn toàn**.
+  - Giao diện lời mời cài đặt được thiết kế tinh tế, hiển thị ở góc dưới màn hình, có nút "Cài đặt" và nút "X" để đóng. Sử dụng `framer-motion` để tạo hiệu ứng trượt mượt mà.
+
+## 8. Hiệu Năng & Tối Ưu (Performance & Optimization)
+- **Giao diện Mobile (Mobile Layout):**
+  - Tiêu đề và Tabbar trên Mobile được tối ưu hóa kích thước chữ (`text-xl`, `text-xs`) và khoảng cách (padding).
+  - Tabbar tìm kiếm cho phép cuộn ngang (`overflow-x-auto`, `scrollbar-hide`) để tránh tình trạng dồn ép, méo chữ hoặc rớt dòng khi màn hình nhỏ.
 - **TanStack Query (@tanstack/react-query):** 
   - Quản lý trạng thái dữ liệu (Data State Management) và Caching.
   - Tự động refetch khi dữ liệu cũ (Stale) hoặc theo yêu cầu thủ công.

@@ -20,15 +20,16 @@ export default defineConfig(({mode}) => {
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',
+          start_url: '/',
           icons: [
             {
-              src: 'logo.png',
+              src: 'https://raw.githubusercontent.com/trongtt-landtrack/Anh-Logo/main/xql6xl4b.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any maskable'
             },
             {
-              src: 'logo.png',
+              src: 'https://raw.githubusercontent.com/trongtt-landtrack/Anh-Logo/main/xql6xl4b.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'

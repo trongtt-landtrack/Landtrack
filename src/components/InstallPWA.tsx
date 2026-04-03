@@ -54,7 +54,7 @@ export default function InstallPWA() {
           className="fixed bottom-20 sm:bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white p-4 rounded-2xl shadow-2xl border border-gray-100 flex items-center gap-4"
         >
           <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
-            <img src="/logo.png" alt="LandTrack" className="w-8 h-8 object-contain" />
+            <img src="https://raw.githubusercontent.com/trongtt-landtrack/Anh-Logo/main/xql6xl4b.png" alt="LandTrack" className="w-8 h-8 object-contain" />
           </div>
           <div className="flex-1">
             <h4 className="font-bold text-primary font-display text-sm">Cài đặt LandTrack</h4>
