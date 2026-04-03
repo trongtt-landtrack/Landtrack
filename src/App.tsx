@@ -22,8 +22,8 @@ function Layout() {
   const handleGlobalClick = (e: React.MouseEvent) => {
     // If guest and NOT loading, redirect to login on any click
     if (!authLoading && userRole === 'guest') {
-      e.preventDefault();
-      e.stopPropagation();
+      // Check if the click is NOT on the login link itself (though LoginPage doesn't use Layout)
+      // We use navigate to ensure a smooth transition
       navigate('/login');
     }
   };

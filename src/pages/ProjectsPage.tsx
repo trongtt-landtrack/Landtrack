@@ -62,10 +62,11 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (userRole === 'guest') {
-      setShowGuestWarning(true);
-    } else {
+    // Global click handler in Layout will handle guest redirect if needed
+    if (userRole !== 'guest') {
       navigate(`/projects/${projectId}`);
+    } else {
+      navigate('/login');
     }
   };
 
@@ -74,10 +75,11 @@ export default function ProjectsPage() {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (userRole === 'guest') {
-      setShowGuestWarning(true);
-    } else {
+    // Global click handler in Layout will handle guest redirect if needed
+    if (userRole !== 'guest') {
       navigate(`/projects/${projectId}?tab=units&unitCode=${unitCode}`);
+    } else {
+      navigate('/login');
     }
   };
 
@@ -192,7 +194,7 @@ export default function ProjectsPage() {
   const handleGlobalUnitSearch = useCallback(async (termOverride?: string) => {
     const term = termOverride !== undefined ? termOverride : unitSearchTerm;
     if (userRole === 'guest') {
-      setShowGuestWarning(true);
+      navigate('/login');
       return;
     }
     if (!term && !landAreaMin && !landAreaMax && !constAreaMin && !constAreaMax) {
@@ -366,13 +368,7 @@ export default function ProjectsPage() {
             TÌM DỰ ÁN
           </button>
           <button 
-            onClick={() => {
-              if (userRole === 'guest') {
-                setShowGuestWarning(true);
-              } else {
-                setSearchMode('units');
-              }
-            }}
+            onClick={() => setSearchMode('units')}
             className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
           >
             <Home className="w-4 h-4" />

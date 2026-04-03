@@ -118,6 +118,20 @@ export const PermissionsProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Super Admin always has full access
     if (userRole === 'super_admin') return true;
     
+    // Guest specific logic: Allow viewing projects and details
+    // This ensures they can see the app interface before clicking
+    if (userRole === 'guest') {
+      const allowedGuestActions = [
+        'project:view', 
+        'project_detail:view', 
+        'nav:projects', 
+        'nav:dashboard',
+        'unit_search:view',
+        'unit_list:view'
+      ];
+      if (allowedGuestActions.includes(actionKey)) return true;
+    }
+
     // If no role or permissions not loaded, deny by default
     if (!userRole || !permissions[userRole]) return false;
 
