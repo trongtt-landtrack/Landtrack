@@ -13,7 +13,7 @@ export default function AppSidebar({ user }: AppSidebarProps) {
 
   const handleLogout = async () => {
     await signOut(auth);
-    navigate('/login');
+    navigate('/');
   };
 
   return (

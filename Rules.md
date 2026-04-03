@@ -20,13 +20,28 @@ LandTrack V2 là nền tảng quản lý và phân phối bất động sản th
 - **Xử lý giá trị trống:**
   - Không hiển thị các trường dữ liệu mang giá trị "N/A", "-", hoặc rỗng.
   - Trạng thái (Status) được đổ màu tương ứng: `Đã bán` (Đỏ), `Đặt chỗ` (Vàng), `Trống` (Xanh), v.v.
+- **Giao diện Guest Warning Modal:**
+  - Hiển thị khi người dùng Guest (Khách) cố gắng truy cập các tính năng yêu cầu đăng nhập.
+  - Giao diện sử dụng tông màu xanh chủ đạo (`#005d8f`), có biểu tượng ổ khóa, danh sách đặc quyền khi đăng nhập, và 2 nút: "ĐĂNG NHẬP" và "Đăng ký".
+  - Nút "Đăng ký" chuyển hướng đến trang đăng nhập với tham số `?register=true` để tự động mở form đăng ký.
 
-## 4. Logic Phân Quyền (Authorization Logic)
-- **Firebase Auth:** Chỉ cho phép người dùng đã xác thực truy cập.
-- **User Roles:** 
-  - `Admin`: Toàn quyền quản lý cấu hình dự án và xem toàn bộ dữ liệu.
-  - `Agent/User`: Xem dữ liệu theo phân quyền được chỉ định.
-- **Firestore Rules:** Bảo mật dữ liệu ở cấp độ document, ngăn chặn truy cập trái phép vào cấu hình nhạy cảm.
+## 4. Logic Phân Quyền & Xác Thực (Authorization & Authentication Logic)
+- **Firebase Auth:** Quản lý đăng nhập, đăng ký, và khôi phục mật khẩu.
+- **User Roles & Permissions:** 
+  - `super_admin`: Toàn quyền quản lý cấu hình dự án, người dùng, và xem toàn bộ dữ liệu.
+  - `admin`: Quản lý dự án, xem dữ liệu, nhưng không quản lý người dùng hay cài đặt hệ thống.
+  - `project_director`: Quản lý dự án, xem dữ liệu.
+  - `user`: Xem dữ liệu dự án, quỹ căn, tài liệu theo phân quyền được chỉ định. Không có quyền quản trị.
+  - `guest`: Khách vãng lai chưa đăng nhập. Chỉ xem được danh sách dự án (ProjectsPage). Các hành động xem chi tiết dự án, xem giá, chính sách, tài liệu, hoặc quan tâm căn hộ sẽ kích hoạt `GuestWarningModal`.
+  - `banner`: Người dùng bị khóa tài khoản.
+- **Cơ chế hoạt động của Guest:**
+  - Khi Guest click vào dự án, căn hộ, tài liệu, hoặc đại lý, hệ thống sẽ hiển thị `GuestWarningModal` thay vì chuyển hướng trực tiếp đến trang đăng nhập.
+  - Khi Guest đóng Modal (click nút X), giao diện vẫn giữ nguyên ở trang hiện tại với vai trò Guest.
+  - Khi User đăng nhập rồi đăng xuất, hệ thống sẽ chuyển hướng về trang chủ (`/`) và trở lại giao diện với phân cấp Guest.
+- **Đăng ký tài khoản:**
+  - Yêu cầu số điện thoại hợp lệ (định dạng VN) và số điện thoại người giới thiệu.
+  - Số điện thoại người giới thiệu phải nằm trong danh sách `allowed_phones` trên Firestore.
+  - Đồng bộ thông tin người dùng mới sang Google Sheets qua `VITE_USER_SYNC_GAS_URL`.
 
 ## 5. Quy Tắc Tìm Kiếm & Lọc (Search & Filter Rules)
 - **Tìm kiếm:** Hỗ trợ tìm kiếm theo Mã căn, Phân khu, Loại hình.
@@ -38,6 +53,7 @@ LandTrack V2 là nền tảng quản lý và phân phối bất động sản th
 - **Dashboard:** Thống kê tổng quan và danh sách Đại lý đối tác.
 - **Quỹ căn (Unit Data):** Trái tim của App, hiển thị trạng thái sản phẩm thời gian thực.
 - **Tài liệu (Docs):** Kho lưu trữ tài liệu pháp lý, thiết kế theo từng mã căn.
+- **So sánh căn hộ:** Cho phép chọn tối đa 4 căn hộ để so sánh chi tiết các thông số.
 
 ## 7. Hiệu Năng & Tối Ưu (Performance & Optimization)
 - **TanStack Query (@tanstack/react-query):** 

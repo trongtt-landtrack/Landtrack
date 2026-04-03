@@ -19,17 +19,8 @@ function Layout() {
   const { userRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleGlobalClick = (e: React.MouseEvent) => {
-    // If guest and NOT loading, redirect to login on any click
-    if (!authLoading && userRole === 'guest') {
-      // Check if the click is NOT on the login link itself (though LoginPage doesn't use Layout)
-      // We use navigate to ensure a smooth transition
-      navigate('/login');
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] font-sans" onClickCapture={handleGlobalClick}>
+    <div className="min-h-screen bg-[var(--bg-app)] font-sans">
       <Navbar />
       <main className="pb-20 sm:pb-0">
         <Suspense fallback={<div className="p-8 text-center">Đang tải...</div>}>
