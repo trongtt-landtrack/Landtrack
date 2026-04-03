@@ -351,35 +351,38 @@ export default function ProjectsPage() {
   }, [unitSearchResults, sortConfig]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-[28px] font-display font-bold text-center text-primary mb-8 uppercase tracking-wider">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <h1 className="text-xl sm:text-[28px] font-display font-bold text-center text-primary mb-6 sm:mb-8 uppercase tracking-wider leading-tight px-2">
         DANH MỤC DỰ ÁN & QUỸ CĂN
       </h1>
 
       {/* Smart Search and Filters Block */}
-      <div className="bg-white rounded-2xl shadow-lg border border-[#f9f4f4] p-6 mb-10">
-        <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
-          <button 
-            onClick={() => setSearchMode('projects')}
-            className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'projects' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            TÌM DỰ ÁN
-          </button>
-          {hasPermission('unit_search:view') && (
+      <div className="bg-white rounded-2xl shadow-lg border border-[#f9f4f4] p-4 sm:p-6 mb-8 sm:mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-5 sm:mb-6 border-b border-gray-100 pb-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
             <button 
-              onClick={() => setSearchMode('units')}
-              className={`px-4 py-2 rounded-lg text-sm font-display font-bold transition-all flex items-center gap-2 ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+              onClick={() => setSearchMode('projects')}
+              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-display font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none justify-center ${searchMode === 'projects' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
             >
-              <Home className="w-4 h-4" />
-              TÌM CĂN HỘ (SMART SEARCH)
+              <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              TÌM DỰ ÁN
             </button>
-          )}
+            {hasPermission('unit_search:view') && (
+              <button 
+                onClick={() => setSearchMode('units')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-display font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none justify-center ${searchMode === 'units' ? 'bg-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">TÌM CĂN HỘ (SMART SEARCH)</span>
+                <span className="sm:hidden">TÌM CĂN HỘ</span>
+              </button>
+            )}
+          </div>
           
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
-              <Database className="w-4 h-4 text-accent" />
-              <span className="text-xs font-display font-bold text-gray-600">
+          <div className="sm:ml-auto flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100 w-full sm:w-auto justify-center">
+              <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
+              <span className="text-[10px] sm:text-xs font-display font-bold text-gray-600">
                 TỔNG QUỸ CĂN: <span className="text-accent">{totalUnitsInSystem.toLocaleString()}</span>
               </span>
             </div>
