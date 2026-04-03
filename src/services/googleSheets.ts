@@ -209,7 +209,8 @@ export async function fetchConfiguredSheetData<T>(
     }
   }
   
-  // 3. Check GAS API
+  /* 
+  // 3. Check GAS API - Tạm thời vô hiệu hóa do lỗi trả về HTML thay vì JSON
   const gasApiUrl = import.meta.env.VITE_DATA_CLEAN_GAS_URL || 'https://script.google.com/macros/s/AKfycbzpFlOTImhFD5EUv0CnmPNREnvyG4koJbeEI9JrJpM2P4DX2h0-QaZQz8EnkkUQ0BfYSA/exec';
   if (gasApiUrl) {
     console.log('Đang sử dụng GAS API để làm sạch dữ liệu từ:', url);
@@ -234,8 +235,10 @@ export async function fetchConfiguredSheetData<T>(
       // Fallback xuống cách cũ nếu GAS lỗi
     }
   }
+  */
 
   // 2. Fallback: Cách cũ (Tải CSV trực tiếp - không lọc được dòng ẩn)
+  console.log('Sử dụng phương thức tải CSV trực tiếp cho:', url);
   if (!csvUrl) {
     throw new Error('Invalid Google Sheet URL');
   }

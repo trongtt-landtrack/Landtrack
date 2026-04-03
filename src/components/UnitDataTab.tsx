@@ -361,7 +361,7 @@ export default function UnitDataTab({
         if (!matchesSearch) return false;
       }
 
-      for (const [key, values] of Object.entries(filters)) {
+      for (const [key, values] of Object.entries(filters) as [string, string[]][]) {
         if (values && values.length > 0) {
           const actualKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase()) || key;
           const itemValue = removeAccents(String(item[actualKey] || '').toLowerCase().trim());
