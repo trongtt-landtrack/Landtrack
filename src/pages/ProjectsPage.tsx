@@ -54,6 +54,7 @@ export default function ProjectsPage() {
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
   const [totalUnitsInSystem, setTotalUnitsInSystem] = useState<number>(0);
+  const [selectedUnitDetail, setSelectedUnitDetail] = useState<UnitSearchResult | null>(null);
   
   // Guest Warning Modal State
   const [showGuestWarning, setShowGuestWarning] = useState(false);
@@ -656,64 +657,108 @@ export default function ProjectsPage() {
                       const status = getVal('Tình trạng', 'Trạng thái');
                       const price = getVal('Giá gồm VAT', 'Giá');
                       const area = getVal('DT Đất', 'Diện tích');
+                      const constArea = getVal('DTXD');
                       const type = getVal('Loại hình');
                       const orientation = getVal('Hướng');
                       const agent = getVal('TÊN ĐL', 'ĐL');
                       const unitCode = getVal('Mã căn');
+                      const subdivision = getVal('Phân khu');
+                      const gift = getVal('Quà tặng');
+                      const ptg = getVal('PTG');
+                      const spreadsheetId = getVal('SpreadsheetID');
 
                       return (
                         <motion.div 
                           key={`${result.projectId}-${idx}`}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-white border border-gray-100 rounded-3xl p-4 sm:p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative overflow-hidden flex flex-col lg:flex-row lg:items-center gap-4"
+                          className="bg-white border border-gray-100 rounded-3xl p-4 sm:p-5 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative overflow-hidden flex flex-col lg:flex-row lg:items-center gap-4 cursor-pointer"
+                          onClick={() => setSelectedUnitDetail(result)}
                         >
                           {/* Left: Basic Info */}
                           <div className="flex-shrink-0 lg:w-48 flex flex-col justify-center">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[9px] font-black text-accent uppercase tracking-widest font-display truncate max-w-[120px]" title={result.projectName}>
+                              <span className="text-[10px] font-black text-accent uppercase tracking-widest font-display truncate max-w-[150px]" title={result.projectName}>
                                 {result.projectName}
                               </span>
                               <ChevronRight className="w-2.5 h-2.5 text-gray-300" />
                             </div>
-                            <h3 className="text-lg font-black text-primary font-display tracking-tight mb-2">
-                              {unitCode}
+                            <h3 className="text-xl font-black text-primary font-display tracking-tight mb-2 flex items-center gap-2">
+                              {ptg ? (
+                                <a 
+                                  href={ptg} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="hover:text-accent hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {unitCode}
+                                </a>
+                              ) : (
+                                unitCode
+                              )}
                             </h3>
-                            {status && (
-                              <div className={`inline-flex self-start px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${
-                                status.toLowerCase().includes('trống') || status.toLowerCase().includes('mở') 
-                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                                  : status.toLowerCase().includes('cọc') || status.toLowerCase().includes('đã bán')
-                                  ? 'bg-red-50 text-red-600 border-red-100'
-                                  : 'bg-gray-50 text-gray-500 border-gray-100'
-                              }`}>
-                                {status}
-                              </div>
-                            )}
+                            <div className="flex flex-wrap gap-2">
+                              {status && (
+                                <div className={`inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border font-display ${
+                                  status.toLowerCase().includes('trống') || status.toLowerCase().includes('mở') 
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                    : status.toLowerCase().includes('cọc') || status.toLowerCase().includes('đã bán')
+                                    ? 'bg-red-50 text-red-600 border-red-100'
+                                    : 'bg-gray-50 text-gray-500 border-gray-100'
+                                }`}>
+                                  {status}
+                                </div>
+                              )}
+                              {subdivision && (
+                                <div className="inline-flex px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-primary/10 bg-primary/5 text-primary font-display">
+                                  {subdivision}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Middle: Key Metrics */}
-                          <div className="flex-grow grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 py-3 lg:py-0 border-y lg:border-y-0 lg:border-x border-gray-50 px-0 lg:px-6">
+                          <div className="flex-grow grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 py-3 lg:py-0 border-y lg:border-y-0 lg:border-x border-gray-50 px-0 lg:px-6">
                             <div className="space-y-0.5">
-                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Giá niêm yết</span>
-                              <span className="text-xs font-black text-accent font-display block truncate" title={price}>{price}</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Diện tích</span>
-                              <span className="text-xs font-black text-primary font-display block truncate" title={area ? `${area} m²` : ''}>{area ? `${area} m²` : ''}</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Loại hình</span>
-                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={type}>{type}</span>
-                            </div>
-                            <div className="space-y-0.5">
-                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Hướng</span>
-                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={orientation}>{orientation}</span>
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Giá gồm VAT</span>
+                              <span className="text-sm font-black text-accent font-display block truncate" title={price}>{price}</span>
                             </div>
                             <div className="space-y-0.5">
                               <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Đại lý</span>
-                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={agent}>{agent}</span>
+                              {spreadsheetId ? (
+                                <a 
+                                  href={spreadsheetId} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-black text-primary hover:text-accent hover:underline font-display block truncate"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={agent}
+                                >
+                                  {agent}
+                                </a>
+                              ) : (
+                                <span className="text-xs font-black text-primary font-display block truncate" title={agent}>{agent}</span>
+                              )}
                             </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">DT Đất</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={area ? `${area} m²` : ''}>{area ? `${area} m²` : ''}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">DTXD</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={constArea ? `${constArea} m²` : ''}>{constArea ? `${constArea} m²` : ''}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Loại hình / Hướng</span>
+                              <span className="text-xs font-bold text-primary/70 font-display block truncate" title={`${type} / ${orientation}`}>{type} {orientation ? `/ ${orientation}` : ''}</span>
+                            </div>
+                            {gift && (
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display block">Quà tặng</span>
+                                <span className="text-xs font-bold text-orange-600 font-display block truncate" title={gift}>{gift}</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Right: Actions */}
@@ -723,7 +768,6 @@ export default function ProjectsPage() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  // Logic copy zalo tương tự UnitDataTab
                                   const text = `[LANDTRACK] Thông tin căn hộ:\n- Dự án: ${result.projectName}\n- Mã căn: ${unitCode}\n- Giá: ${price}\n- Diện tích: ${area} m2\n- Trạng thái: ${status}`;
                                   navigator.clipboard.writeText(text);
                                   alert('Đã sao chép thông tin căn hộ!');
@@ -749,15 +793,11 @@ export default function ProjectsPage() {
                             </div>
                             <button 
                               onClick={(e) => {
-                                if (result.projectId === 'unknown') {
-                                  alert('Không tìm thấy thông tin chi tiết cho dự án này.');
-                                  return;
-                                }
-                                handleUnitClick(result.projectId, result.unitData['Mã căn'] || '', e);
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelectedUnitDetail(result);
                               }}
-                              className={`flex-1 lg:w-full py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest font-display shadow-md shadow-primary/10 hover:bg-accent transition-all duration-300 flex items-center justify-center gap-1.5 ${
-                                result.projectId === 'unknown' ? 'opacity-20 cursor-not-allowed' : ''
-                              }`}
+                              className="flex-1 lg:w-full py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest font-display shadow-md shadow-primary/10 hover:bg-accent transition-all duration-300 flex items-center justify-center gap-1.5"
                             >
                               CHI TIẾT <ChevronRight className="w-3.5 h-3.5" />
                             </button>
@@ -965,6 +1005,140 @@ export default function ProjectsPage() {
       )}
 
       <ContactCard />
+
+      {/* Unit Detail Modal */}
+      <AnimatePresence>
+        {selectedUnitDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedUnitDetail(null)}
+              className="absolute inset-0 bg-primary/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="flex-none bg-gradient-to-r from-primary to-primary/90 p-6 sm:p-8 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+                <button 
+                  onClick={() => setSelectedUnitDetail(null)}
+                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-md"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border font-display ${
+                      String(selectedUnitDetail.unitData['Tình trạng'] || selectedUnitDetail.unitData['Trạng thái'] || '').toLowerCase().includes('trống') || 
+                      String(selectedUnitDetail.unitData['Tình trạng'] || selectedUnitDetail.unitData['Trạng thái'] || '').toLowerCase().includes('mở')
+                        ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/30' 
+                        : 'bg-red-500/20 text-red-100 border-red-500/30'
+                    }`}>
+                      {String(selectedUnitDetail.unitData['Tình trạng'] || selectedUnitDetail.unitData['Trạng thái'] || 'Chưa xác định')}
+                    </div>
+                    <span className="text-xs font-medium text-white/70 font-sans flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5" />
+                      {selectedUnitDetail.projectName}
+                    </span>
+                  </div>
+                  <h2 className="text-3xl sm:text-4xl font-black font-display tracking-tight mb-2">
+                    {String(selectedUnitDetail.unitData['Mã căn'] || selectedUnitDetail.unitData['Mã SP'] || 'Căn hộ')}
+                  </h2>
+                  <p className="text-lg text-white/80 font-sans">
+                    {String(selectedUnitDetail.unitData['Phân khu'] || 'Dự án')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-gray-50/50 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Left Column: Key Info */}
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest font-display mb-4 flex items-center gap-2">
+                        <Database className="w-4 h-4" /> Thông tin cơ bản
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display mb-1">Giá bán</p>
+                          <p className="text-2xl font-black text-accent font-display">
+                            {selectedUnitDetail.unitData['Giá gồm VAT'] || selectedUnitDetail.unitData['Giá niêm yết'] || selectedUnitDetail.unitData['Giá'] || '-'}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                          <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display mb-1">Diện tích đất</p>
+                            <p className="text-lg font-black text-primary font-sans">{selectedUnitDetail.unitData['DT Đất'] || selectedUnitDetail.unitData['Diện tích đất'] || selectedUnitDetail.unitData['Diện tích'] || '-'} m²</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display mb-1">Diện tích XD</p>
+                            <p className="text-lg font-black text-primary font-sans">{selectedUnitDetail.unitData['DTXD'] || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display mb-1">Hướng</p>
+                            <p className="text-lg font-black text-primary font-sans">{selectedUnitDetail.unitData['Hướng'] || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display mb-1">Loại hình</p>
+                            <p className="text-lg font-black text-primary font-sans">{selectedUnitDetail.unitData['Loại hình'] || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Details */}
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest font-display mb-4 flex items-center gap-2">
+                        <LayoutGrid className="w-4 h-4" /> Chi tiết khác
+                      </h3>
+                      <div className="space-y-3">
+                        {Object.keys(selectedUnitDetail.unitData)
+                          .filter(key => 
+                            !['Mã căn', 'Mã SP', 'Tình trạng', 'Trạng thái', 'Giá gồm VAT', 'Giá niêm yết', 'Giá', 'DT Đất', 'Diện tích đất', 'Diện tích', 'DTXD', 'Hướng', 'Loại hình', 'Phân khu'].includes(key) &&
+                            String(selectedUnitDetail.unitData[key] || '').trim() !== '' &&
+                            String(selectedUnitDetail.unitData[key] || '').toLowerCase() !== 'n/a'
+                          )
+                          .map(key => (
+                            <div key={key} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-50 last:border-0 gap-1">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-display">{key}</span>
+                              <span className="text-sm font-medium text-primary font-sans text-left sm:text-right">
+                                {key === 'PTG' ? (
+                                  <a href={selectedUnitDetail.unitData[key]} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                                    {selectedUnitDetail.unitData['Mã căn']}
+                                  </a>
+                                ) : key === 'TÊN ĐL' || key === 'ĐL' ? (
+                                  selectedUnitDetail.unitData['SpreadsheetID'] ? (
+                                    <a href={selectedUnitDetail.unitData['SpreadsheetID']} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                                      {selectedUnitDetail.unitData[key]}
+                                    </a>
+                                  ) : (
+                                    selectedUnitDetail.unitData[key]
+                                  )
+                                ) : (
+                                  selectedUnitDetail.unitData[key]
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <GuestWarningModal 
         isOpen={showGuestWarning} 

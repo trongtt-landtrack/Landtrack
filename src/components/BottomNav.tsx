@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, LayoutGrid, Home } from 'lucide-react';
+import { User, LayoutGrid, Home, Compass } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
@@ -9,6 +9,7 @@ export default function BottomNav() {
   const navItems = [
     { path: '/', label: 'Trang chủ', icon: Home },
     { path: '/projects', label: 'Dự án', icon: LayoutGrid },
+    { path: '/phong-thuy', label: 'La bàn', icon: Compass },
     { path: '/profile', label: 'Hồ sơ', icon: User },
   ];
 

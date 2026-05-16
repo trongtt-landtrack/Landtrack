@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X, Users, Database, Shield } from 'lucide-react';
+import { Bell, RefreshCw, User, LayoutDashboard, LogOut, Menu, X, Users, Database, Shield, Compass } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -75,8 +75,11 @@ export default function Navbar() {
             </Link>
             <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
               <RequirePermission actionKey="nav:projects">
-                <Link to="/projects" className="border-accent text-primary inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
+                <Link to="/projects" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
                   Dự án
+                </Link>
+                <Link to="/phong-thuy" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-display font-bold uppercase transition-colors">
+                  Phong thủy
                 </Link>
               </RequirePermission>
               <RequirePermission actionKey="nav:admin">
@@ -170,6 +173,10 @@ export default function Navbar() {
               <Link to="/projects" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
                 <LayoutDashboard className="h-5 w-5 text-accent" />
                 Dự án
+              </Link>
+              <Link to="/phong-thuy" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-4 text-lg font-display font-bold text-primary border-b border-gray-100">
+                <Compass className="h-5 w-5 text-accent" />
+                Phong thủy
               </Link>
             </RequirePermission>
             <RequirePermission actionKey="nav:admin">

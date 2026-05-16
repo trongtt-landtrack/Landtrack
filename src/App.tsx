@@ -14,6 +14,7 @@ const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const FengShuiPage = lazy(() => import('./pages/FengShuiPage'));
 
 function Layout() {
   const { userRole, loading: authLoading } = useAuth();
@@ -62,6 +63,11 @@ export default function App() {
                 <Route path="projects/:id" element={
                   <ProtectedRoute actionKey="project_detail:view">
                     <ProjectDetailPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="phong-thuy" element={
+                  <ProtectedRoute>
+                    <FengShuiPage />
                   </ProtectedRoute>
                 } />
                 <Route path="profile" element={

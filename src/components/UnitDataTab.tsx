@@ -31,7 +31,7 @@ interface UnitDataTabProps {
 }
 
 // Danh sách các cột cần ẩn để bảo mật dữ liệu hoặc thay thế bằng cột tự động
-const HIDDEN_COLUMNS = ['Giá vốn', 'Chiết khấu', 'STT', 'Stt', 'Số thứ tự', 'No.', 'Index', '#', 'Dự án', 'Tên dự án', 'ProjectName', 'SpreadsheetID', 'TabName', 'Link tài liệu']; 
+const HIDDEN_COLUMNS = ['Giá vốn', 'Chiết khấu', 'STT', 'Stt', 'Số thứ tự', 'No.', 'Index', '#', 'Dự án', 'Tên dự án', 'ProjectName', 'SpreadsheetID', 'TabName', 'Link tài liệu', 'Mã ĐL', 'Cột Check Điều Kiện', 'Từ khóa loại trừ', 'Màu nền loại trừ']; 
 
 export default function UnitDataTab({ 
   sheetUrl, 
@@ -77,6 +77,7 @@ export default function UnitDataTab({
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
   const [expandedMobileUnit, setExpandedMobileUnit] = useState<string | null>(null);
   const [showGuestWarning, setShowGuestWarning] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<'search' | 'phankhu' | 'macan' | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -372,12 +373,17 @@ export default function UnitDataTab({
 
       for (const [key, values] of Object.entries(filters) as [string, string[]][]) {
         if (values && values.length > 0) {
-          const actualKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase()) || key;
+          let actualKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase());
+          if (!actualKey && key.toLowerCase() === 'mã căn') {
+            actualKey = Object.keys(item).find(k => k.toLowerCase().includes('mã căn') || k.toLowerCase().includes('mã sp'));
+          }
+          actualKey = actualKey || key;
+          
           const itemValue = removeAccents(String(item[actualKey] || '').toLowerCase().trim());
           
           const matches = values.some(val => {
             const filterValue = removeAccents(String(val).toLowerCase().trim());
-            return itemValue === filterValue;
+            return itemValue.includes(filterValue);
           });
           
           if (!matches) return false;
@@ -609,7 +615,7 @@ export default function UnitDataTab({
             }`}
           >
             <Filter className="w-4 h-4" />
-            {isFilterOpen ? 'Đóng' : 'Bộ lọc'}
+            {isFilterOpen ? 'Đóng' : 'Lọc nâng cao'}
             {activeFiltersCount > 0 && !isFilterOpen && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-lg font-display">
                 {activeFiltersCount}
@@ -619,89 +625,202 @@ export default function UnitDataTab({
         </div>
       </div>
 
-      {/* Smart Search & Compact Filters */}
+      {/* Smart Search & Inline Filters */}
       <div className="space-y-4">
-        <div className="relative group max-w-2xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-accent transition-colors" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm thông minh (Mã căn, Phân khu, Loại hình...)"
-              className="w-full pl-12 pr-12 py-4 bg-white border border-gray-100 rounded-[1.5rem] text-sm shadow-xl shadow-primary/5 focus:ring-4 focus:ring-accent/10 transition-all outline-none font-sans"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-accent transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Smart Search */}
+          <div className="relative group">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-accent transition-colors" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm nhanh..."
+                className="w-full pl-12 pr-12 py-4 bg-white border border-gray-100 rounded-[1.5rem] text-sm shadow-xl shadow-primary/5 focus:ring-4 focus:ring-accent/10 transition-all outline-none font-sans"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setActiveDropdown('search')}
+                onBlur={() => setTimeout(() => setActiveDropdown(null), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-accent transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-          {/* Smart Suggestions */}
-          {searchTerm && searchTerm.length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2">
-              <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Gợi ý tìm kiếm</div>
-              {Array.from(new Set(
+            {/* Smart Suggestions */}
+            {(() => {
+              if (activeDropdown !== 'search') return null;
+              const term = searchTerm;
+              if (!term || term.length < 2) return null;
+              const suggestions = Array.from(new Set<string>(
                 processedData.flatMap(item => 
                   Object.values(item).map(v => String(v))
-                ).filter(v => v.toLowerCase().includes(searchTerm.toLowerCase()) && v.length < 30)
-              )).slice(0, 8).map((suggestion, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSearchTerm(suggestion)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-accent/5 rounded-xl text-sm font-medium text-primary transition-colors flex items-center gap-3"
-                >
-                  <Search className="w-3.5 h-3.5 text-gray-300" />
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                ).filter((v: string) => v.toLowerCase().includes(term.toLowerCase()) && v.length < 30)
+              )).slice(0, 8);
+              if (suggestions.length === 0 || (suggestions.length === 1 && suggestions[0].toLowerCase() === term.toLowerCase())) return null;
 
-        {/* Compact Filter Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button 
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm font-display ${
-              isFilterOpen ? 'bg-accent text-white' : 'bg-white text-primary border border-gray-100 hover:bg-gray-50'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Bộ lọc nâng cao
-            {activeFiltersCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-md text-[9px]">{activeFiltersCount}</span>
-            )}
-          </button>
-          
-          {/* Quick Filters */}
-          {['Phân khu', 'Loại hình', 'Hướng'].map(col => (
-            <div key={col} className="relative group/filter">
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary hover:border-accent/30 transition-all shadow-sm font-display">
-                {col}
-                <ChevronDown className="w-3 h-3 text-gray-400" />
-              </button>
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-2xl z-40 hidden group-hover/filter:block animate-in fade-in zoom-in-95 p-2">
-                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
-                  {filterOptions[col]?.slice(0, 15).map(opt => (
-                    <label key={opt} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/5 rounded-xl cursor-pointer transition-colors">
-                      <input 
-                        type="checkbox" 
-                        className="accent-accent rounded-sm"
-                        checked={filters[col]?.includes(opt) || false}
-                        onChange={() => toggleFilter(col, opt)}
-                      />
-                      <span className="text-xs font-medium text-primary truncate">{opt}</span>
-                    </label>
+              return (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Gợi ý tìm kiếm</div>
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSearchTerm(suggestion)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-accent/5 rounded-xl text-sm font-medium text-primary transition-colors flex items-center gap-3"
+                    >
+                      <Search className="w-3.5 h-3.5 text-gray-300" />
+                      {suggestion}
+                    </button>
                   ))}
                 </div>
-              </div>
+              );
+            })()}
+          </div>
+
+          {/* Phân khu Input */}
+          <div className="relative group">
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-accent transition-colors" />
+              <input
+                type="text"
+                placeholder="Tìm Phân khu..."
+                className="w-full pl-12 pr-12 py-4 bg-white border border-gray-100 rounded-[1.5rem] text-sm shadow-xl shadow-primary/5 focus:ring-4 focus:ring-accent/10 transition-all outline-none font-sans"
+                value={filters['Phân khu']?.[0] || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) setFilters(prev => ({ ...prev, 'Phân khu': [val] }));
+                  else {
+                    const newFilters = { ...filters };
+                    delete newFilters['Phân khu'];
+                    setFilters(newFilters);
+                  }
+                }}
+                onFocus={() => setActiveDropdown('phankhu')}
+                onBlur={() => setTimeout(() => setActiveDropdown(null), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              {filters['Phân khu']?.[0] && (
+                <button 
+                  onClick={() => {
+                    const newFilters = { ...filters };
+                    delete newFilters['Phân khu'];
+                    setFilters(newFilters);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-accent transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          ))}
+            {/* Suggestions */}
+            {(() => {
+              if (activeDropdown !== 'phankhu') return null;
+              const term = filters['Phân khu']?.[0];
+              if (!term || term.length < 1) return null;
+              const suggestions = Array.from(new Set<string>(
+                processedData
+                  .map(item => String(item['Phân khu'] || ''))
+                  .filter((v: string) => v.toLowerCase().includes(term.toLowerCase()) && v.length < 30 && v)
+              )).slice(0, 8);
+              if (suggestions.length === 0 || (suggestions.length === 1 && suggestions[0].toLowerCase() === term.toLowerCase())) return null;
+
+              return (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Gợi ý phân khu</div>
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setFilters(prev => ({ ...prev, 'Phân khu': [suggestion] }))}
+                      className="w-full text-left px-4 py-2.5 hover:bg-accent/5 rounded-xl text-sm font-medium text-primary transition-colors flex items-center gap-3"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Mã căn Input */}
+          <div className="relative group">
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-accent transition-colors" />
+              <input
+                type="text"
+                placeholder="Tìm Mã căn..."
+                className="w-full pl-12 pr-12 py-4 bg-white border border-gray-100 rounded-[1.5rem] text-sm shadow-xl shadow-primary/5 focus:ring-4 focus:ring-accent/10 transition-all outline-none font-sans"
+                value={filters['Mã căn']?.[0] || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) setFilters(prev => ({ ...prev, 'Mã căn': [val] }));
+                  else {
+                    const newFilters = { ...filters };
+                    delete newFilters['Mã căn'];
+                    setFilters(newFilters);
+                  }
+                }}
+                onFocus={() => setActiveDropdown('macan')}
+                onBlur={() => setTimeout(() => setActiveDropdown(null), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              {filters['Mã căn']?.[0] && (
+                <button 
+                  onClick={() => {
+                    const newFilters = { ...filters };
+                    delete newFilters['Mã căn'];
+                    setFilters(newFilters);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-accent transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {/* Suggestions */}
+            {(() => {
+              if (activeDropdown !== 'macan') return null;
+              const term = filters['Mã căn']?.[0];
+              if (!term || term.length < 1) return null;
+              const suggestions = Array.from(new Set<string>(
+                processedData
+                  .map(item => String(item['Mã căn'] || item['Mã SP'] || ''))
+                  .filter((v: string) => v.toLowerCase().includes(term.toLowerCase()) && v.length < 30 && v)
+              )).slice(0, 8);
+              if (suggestions.length === 0 || (suggestions.length === 1 && suggestions[0].toLowerCase() === term.toLowerCase())) return null;
+
+              return (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Gợi ý mã căn</div>
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setFilters(prev => ({ ...prev, 'Mã căn': [suggestion] }))}
+                      className="w-full text-left px-4 py-2.5 hover:bg-accent/5 rounded-xl text-sm font-medium text-primary transition-colors flex items-center gap-3"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </div>
 
@@ -715,6 +834,48 @@ export default function UnitDataTab({
             className="overflow-hidden"
           >
             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {['Tình trạng', 'Loại hình', 'Hướng'].map(col => (
+                <div key={col} className="space-y-2 relative group">
+                  <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">{col}</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder={`Chọn hoặc nhập ${col.toLowerCase()}`}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-accent/10 font-sans pr-8"
+                      value={filters[col]?.[0] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          setFilters(prev => ({ ...prev, [col]: [val] }));
+                        } else {
+                          const newFilters = { ...filters };
+                          delete newFilters[col];
+                          setFilters(newFilters);
+                        }
+                      }}
+                      list={`list-${col}`}
+                    />
+                    {filters[col]?.[0] && (
+                      <button 
+                        onClick={() => {
+                          const newFilters = { ...filters };
+                          delete newFilters[col];
+                          setFilters(newFilters);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-accent"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    <datalist id={`list-${col}`}>
+                      {filterOptions[col]?.map(opt => (
+                        <option key={opt} value={opt} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+              ))}
+
               {/* Range Filters */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-primary/60 uppercase tracking-widest ml-1 font-display">Khoảng giá (tỷ)</label>
@@ -791,6 +952,9 @@ export default function UnitDataTab({
                       <Heart className="w-3.5 h-3.5" />
                       <Share2 className="w-3.5 h-3.5" />
                     </div>
+                    <div className="flex-none w-[50px] px-4 py-5 text-[10px] font-black text-primary/60 uppercase tracking-widest text-center font-display">
+                      STT
+                    </div>
                     {columns.map((col) => {
                       const lowerCol = col.toLowerCase();
                       let width = 'w-[150px]';
@@ -852,6 +1016,10 @@ export default function UnitDataTab({
                             >
                               <Copy className="w-4 h-4" />
                             </button>
+                          </div>
+                          
+                          <div className="flex-none w-[50px] px-4 py-4 text-center text-sm font-bold text-gray-500">
+                            {(currentPage - 1) * itemsPerPage + i + 1}
                           </div>
 
                           {columns.map((col) => {
@@ -1020,7 +1188,19 @@ export default function UnitDataTab({
                                   .map(key => (
                                     <div key={key} className="flex justify-between items-center py-1 border-b border-gray-50/50">
                                       <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest font-display">{key}</span>
-                                      <span className="text-[10px] font-bold text-primary text-right">{row[key] || '-'}</span>
+                                      {key === 'PTG' ? (
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (onNavigate) onNavigate('docs', { searchTerm: unitCode });
+                                          }}
+                                          className="text-[10px] font-black text-accent hover:underline text-right"
+                                        >
+                                          {unitCode}
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-primary text-right">{row[key] || '-'}</span>
+                                      )}
                                     </div>
                                   ))}
                               </div>
