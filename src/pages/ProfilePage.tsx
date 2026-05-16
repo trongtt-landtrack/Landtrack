@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Share2, Edit2, Loader2, Save, Clock, Heart, ArrowRight, UserCog, Palette, Check, Zap } from 'lucide-react';
+import { User, Mail, Phone, Share2, Edit2, Loader2, Save, Clock, Heart, ArrowRight, UserCog, Palette, Check, Zap, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Tabs from '../components/Tabs';
 import { auth, db } from '../firebase';
@@ -225,9 +225,17 @@ export default function ProfilePage() {
             <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {userData.phone || 'Chưa cập nhật'}</span>
             <span className="flex items-center gap-1"><Mail className="w-4 h-4" /> {userData.email}</span>
           </div>
-          <button className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-sm font-display font-bold hover:bg-accent transition-colors">
-            <Share2 className="w-4 h-4" /> Giới thiệu bạn bè
-          </button>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-sm font-display font-bold hover:bg-accent transition-colors">
+              <Share2 className="w-4 h-4" /> Giới thiệu bạn bè
+            </button>
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('manual-install-pwa'))}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-primary border border-primary/20 rounded-md text-sm font-display font-bold hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Cài đặt ứng dụng
+            </button>
+          </div>
         </div>
       </div>
 
