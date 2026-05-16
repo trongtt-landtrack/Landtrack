@@ -215,11 +215,11 @@ export default function FengShuiPage() {
         Chuyên Gia Phong Thuỷ
       </h1>
 
-      <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-sm mx-auto mb-8 relative">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-sm mx-auto mb-8 relative">
         <button
           onClick={() => setActiveTab('tuvan')}
           className={`flex-1 py-3 text-sm font-bold font-display uppercase tracking-widest rounded-xl transition-all z-10 ${
-            activeTab === 'tuvan' ? 'text-primary shadow-sm bg-white' : 'text-gray-400 hover:text-gray-700'
+            activeTab === 'tuvan' ? 'text-white shadow-sm bg-primary' : 'text-slate-500 hover:text-primary'
           }`}
         >
           Tư vấn Bát Trạch
@@ -227,7 +227,7 @@ export default function FengShuiPage() {
         <button
           onClick={() => setActiveTab('laban')}
           className={`flex-1 py-3 text-sm font-bold font-display uppercase tracking-widest rounded-xl transition-all z-10 ${
-            activeTab === 'laban' ? 'text-primary shadow-sm bg-white' : 'text-gray-400 hover:text-gray-700'
+            activeTab === 'laban' ? 'text-white shadow-sm bg-primary' : 'text-slate-500 hover:text-primary'
           }`}
         >
           La Bàn
@@ -237,27 +237,27 @@ export default function FengShuiPage() {
       {activeTab === 'laban' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 max-w-5xl mx-auto">
           {/* Compass Section */}
-          <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 flex flex-col items-center justify-center min-h-[400px]">
+          <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col items-center justify-center min-h-[400px]">
             {!browserSupported ? (
-              <div className="text-center p-6 bg-red-50 text-red-600 rounded-2xl">
+              <div className="text-center p-6 bg-red-50 text-red-600 rounded-2xl border border-red-100">
                 <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-80" />
                 <p>Thiết bị hoặc trình duyệt của bạn không hỗ trợ cảm biến hướng.</p>
               </div>
             ) : permissionGranted === null ? (
-              <div className="text-center p-8 bg-gray-50 rounded-2xl w-full">
-                <Compass className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 mb-6 font-sans text-sm block">
+              <div className="text-center p-8 bg-slate-50 rounded-2xl w-full border border-slate-100">
+                <Compass className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600 mb-6 font-sans text-sm block">
                   Cấp quyền cảm biến để xem tọa độ thực tế tại dự án. Để điện thoại nằm ngang hình số 8.
                 </p>
                 <button 
                   onClick={requestAccess}
-                  className="px-6 py-3 bg-accent text-white font-display font-bold rounded-xl hover:bg-yellow-600 transition-colors shadow-lg"
+                  className="px-6 py-3 bg-accent text-white font-display font-bold rounded-xl hover:bg-accent-dark transition-colors shadow-lg"
                 >
                   Kích hoạt La Bàn
                 </button>
               </div>
             ) : permissionGranted === false ? (
-              <div className="text-center p-6 bg-orange-50 text-orange-600 rounded-2xl">
+              <div className="text-center p-6 bg-orange-50 text-orange-600 rounded-2xl border border-orange-100">
                 <p>Quyền bị từ chối. Vui lòng cấp quyền trong cài đặt.</p>
               </div>
             ) : (
@@ -269,12 +269,15 @@ export default function FengShuiPage() {
                   {heading !== null ? getDirectionName(heading) : 'Đang tải...'}
                 </p>
                 
-                <div className="relative w-[300px] h-[300px] flex items-center justify-center bg-gray-50 rounded-full inset-shadow-sm">
-                  <div className="absolute inset-0 rounded-full border-4 border-gray-100 mix-blend-multiply">
+                <div className="relative w-[300px] h-[300px] flex items-center justify-center bg-slate-50 rounded-full border-[8px] border-white shadow-inner">
+                  <div className="absolute inset-2 rounded-full border border-slate-200"></div>
+                  <div className="absolute inset-4 rounded-full border border-dashed border-slate-200"></div>
+                  
+                  <div className="absolute inset-0 rounded-full">
                     {BAGUA_DIRECTIONS.map((dir) => (
                       <div 
                         key={dir.name}
-                        className="absolute inset-0 flex items-start justify-center text-sm font-display font-black text-gray-300 py-2 pt-4"
+                        className="absolute inset-0 flex items-start justify-center text-sm font-display font-black text-slate-400 py-2 pt-4"
                         style={{ transform: `rotate(${dir.angle}deg)` }}
                       >
                         <span style={{ transform: `rotate(${-dir.angle}deg)` }}>
@@ -289,28 +292,28 @@ export default function FengShuiPage() {
 
                   {/* Rotating Compass Needle */}
                   <motion.div 
-                    className="w-[260px] h-[260px] rounded-full border-[6px] border-white bg-gradient-to-br from-white to-gray-50 shadow-2xl flex items-center justify-center relative origin-center"
+                    className="w-[260px] h-[260px] rounded-full border-[6px] border-white bg-gradient-to-br from-white to-slate-50 shadow-2xl flex items-center justify-center relative origin-center"
                     animate={{ rotate: heading !== null ? -heading : 0 }}
                     transition={{ type: "spring", stiffness: 40, damping: 20 }}
                   >
-                    <div className="absolute w-2 h-[180px] bg-gradient-to-t from-transparent via-gray-300 to-red-500 rounded-full"></div>
+                    <div className="absolute w-2 h-[180px] bg-gradient-to-t from-transparent via-slate-300 to-red-500 rounded-full"></div>
                     <div className="w-6 h-6 bg-primary rounded-full shadow-lg z-10 border-4 border-white"></div>
                     
                     <div className="absolute top-8 w-0 h-0 border-l-[10px] border-r-[10px] border-b-[20px] border-l-transparent border-r-transparent border-b-red-500 shadow-sm"></div>
-                    <div className="absolute bottom-8 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[20px] border-l-transparent border-r-transparent border-t-gray-400"></div>
+                    <div className="absolute bottom-8 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[20px] border-l-transparent border-r-transparent border-t-slate-400"></div>
                   </motion.div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 flex flex-col justify-center">
-            <h2 className="text-xl font-display font-bold text-gray-800 mb-6 flex items-center gap-2">
-              <Info className="text-primary w-6 h-6" /> Cách sử dụng & Chú ý
+          <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex flex-col justify-center">
+            <h2 className="text-xl font-display font-bold text-primary mb-6 flex items-center gap-2">
+              <Info className="text-accent w-6 h-6" /> Cách sử dụng & Chú ý
             </h2>
-            <div className="space-y-4 text-sm font-sans text-gray-600 leading-relaxed bg-gray-50 p-6 rounded-2xl">
+            <div className="space-y-4 text-sm font-sans text-slate-600 leading-relaxed bg-slate-50 p-6 rounded-2xl">
               <p>
-                <strong>Bảo mật & Độ chính xác:</strong>
+                <strong className="text-primary">Bảo mật & Độ chính xác:</strong>
               </p>
               <ul className="list-disc pl-5 space-y-2">
                 <li>Đứng cách xa các vật kim loại lớn, trụ điện, loa hoặc thiết bị từ tính.</li>
@@ -321,10 +324,12 @@ export default function FengShuiPage() {
             
             {result && (
               <div className="mt-6 p-6 border-2 border-accent/20 bg-accent/5 rounded-2xl text-center">
-                <p className="text-sm text-gray-600 mb-2 font-display uppercase tracking-widest">Gợi ý cho KH tuổi {birthYear}</p>
-                <p className="font-sans text-sm">
+                <p className="text-sm text-slate-600 mb-2 font-display uppercase tracking-widest font-bold">Gợi ý cho CĐT sinh năm {birthYear}</p>
+                <p className="font-sans text-sm text-slate-700">
                   Theo thông tin tư vấn, hãy hướng la bàn về các góc: <br/> 
-                  <strong className="text-accent">{result.huongTot.map((h: string) => h.split(' ')[0]).join(', ')}</strong> để chỉ cho khách hàng vị trí đón Sinh Khí.
+                  <strong className="text-accent text-base bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm mt-2 inline-block">
+                    {result.huongTot.map((h: string) => h.split(' ')[0]).join(', ')}
+                  </strong><br/>để chỉ cho khách hàng vị trí đón Sinh Khí.
                 </p>
               </div>
             )}
@@ -336,7 +341,7 @@ export default function FengShuiPage() {
         <div className="animate-in fade-in slide-in-from-bottom-4 w-full space-y-8">
           {/* Form */}
           <div className={`transition-all duration-500 ${!result ? 'max-w-3xl mx-auto mt-12' : 'w-full'}`}>
-            <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-2xl border border-gray-100 relative overflow-hidden">
+            <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-xl border border-gray-100 relative overflow-hidden">
               <div className="absolute top-[-50px] right-[-50px] w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none"></div>
               <div className="absolute bottom-[-50px] left-[-50px] w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
               
@@ -348,10 +353,10 @@ export default function FengShuiPage() {
                 
                 <div className={`flex flex-col ${result ? 'md:flex-row md:items-end' : ''} gap-6`}>
                   <div className="flex-1">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Năm sinh âm lịch (Của Chủ Sự)</label>
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Năm sinh Âm lịch (Của Gia Chủ)</label>
                     <input 
                       type="number" 
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-accent/30 rounded-2xl px-5 py-4 text-primary text-xl font-display font-black text-center focus:outline-none transition-all"
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-accent/30 rounded-2xl px-5 py-4 text-primary text-xl font-display font-black text-center focus:outline-none transition-all placeholder:text-gray-300"
                       value={birthYear}
                       onChange={(e) => setBirthYear(e.target.value)}
                       placeholder="VD: 1990"
@@ -378,7 +383,7 @@ export default function FengShuiPage() {
                   <div className={`${result ? 'md:w-64' : 'mt-4'}`}>
                     <button 
                       onClick={calculateFengShui}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-accent to-yellow-600 hover:from-yellow-600 hover:to-accent text-white font-display font-black text-lg shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 rounded-2xl bg-gradient-gold hover:opacity-90 text-white font-display font-black text-lg shadow-xl shadow-accent/20 transition-all flex items-center justify-center gap-2"
                     >
                       Luận Giải <ArrowRight className="w-5 h-5" />
                     </button>
@@ -461,9 +466,9 @@ export default function FengShuiPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-xl border border-gray-100">
-                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100">
-                  <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-600">
+              <div className="bg-white rounded-[2rem] p-8 md:p-10 shadow-xl border border-gray-100 relative overflow-hidden">
+                <div className="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 border border-red-100">
                     <Calendar className="w-6 h-6" />
                   </div>
                   <div>
@@ -472,39 +477,40 @@ export default function FengShuiPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 relative z-10">
                   {goodDays.map((day, idx) => (
-                    <div key={idx} className="bg-white border-2 border-gray-100 p-6 md:p-8 rounded-[2rem] hover:border-accent/40 transition-all hover:shadow-xl hover:shadow-accent/5 group">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                    <div key={idx} className="bg-slate-50 border border-gray-100 p-6 md:p-8 rounded-[2rem] hover:border-accent/40 transition-all hover:shadow-lg group relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-bl-full pointer-events-none group-hover:bg-accent/10 transition-colors"></div>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 relative z-10">
                         <div>
-                          <p className="text-xs sm:text-sm font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <p className="text-xs sm:text-sm font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-accent" />
                             {day.date.toLocaleDateString('vi-VN')}
                           </p>
-                          <p className="text-xl sm:text-2xl xl:text-3xl font-display font-black text-primary">{day.title}</p>
+                          <p className="text-xl sm:text-2xl xl:text-3xl font-display font-black text-primary group-hover:text-accent transition-colors">{day.title}</p>
                         </div>
-                        <div className="bg-gradient-to-r from-accent to-yellow-500 px-4 py-2 rounded-xl shadow-sm inline-block self-start">
+                        <div className="bg-gradient-gold px-4 py-2 rounded-xl shadow-sm inline-block self-start">
                            <span className="text-xs font-black text-white uppercase tracking-wider">Hợp {result.mang}</span>
                         </div>
                       </div>
                       
-                      <div className="bg-gray-50 border border-gray-100 p-5 rounded-2xl mb-4 text-gray-700">
+                      <div className="bg-white border text-sm border-gray-100 p-5 rounded-2xl mb-4 text-gray-600 relative z-10">
                         <div className="flex items-start gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0">
-                            <Clock className="w-4 h-4 text-gray-400" />
+                          <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 border border-gray-100">
+                            <Clock className="w-4 h-4 text-accent" />
                           </div>
                           <div className="pt-1.5">
-                            <strong className="block mb-1 text-gray-900">Giờ tốt:</strong> 
-                            <span className="text-gray-600 leading-relaxed block">{day.hours}</span>
+                            <strong className="block mb-1 text-primary">Giờ tốt:</strong> 
+                            <span className="text-gray-500 leading-relaxed block">{day.hours}</span>
                           </div>
                         </div>
                       </div>
 
-                       <div className="flex items-start gap-3 mt-4">
-                          <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                            <Star className="w-4 h-4 text-accent" />
+                       <div className="flex items-start gap-3 mt-4 relative z-10">
+                          <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
+                            <Star className="w-4 h-4 text-red-500" />
                           </div>
-                          <p className="text-sm text-gray-600 pt-1.5 leading-relaxed">{day.desc}</p>
+                          <p className="text-sm text-gray-500 pt-1.5 leading-relaxed">{day.desc}</p>
                        </div>
                     </div>
                   ))}

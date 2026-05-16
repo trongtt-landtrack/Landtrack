@@ -74,9 +74,9 @@
       #AA7C11 100%   /* Dark Gold - Bottom shadow */
     );
     -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     background-clip: text;
     color: transparent;
-    -webkit-text-fill-color: transparent;
     letter-spacing: 0.02em;
   }
   
